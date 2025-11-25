@@ -6,7 +6,7 @@ FastAPI service for registering and logging in users with a 6-digit email OTP. A
 - Python 3.10+ with `pip`
 - PostgreSQL running locally or reachable over the network
 - SMTP credentials (Gmail, Outlook, Mailtrap, etc.)
-- Terminal access to the project root (`C:\Users\stran\Desktop\UserManagementWithEmailOtp`)
+- Terminal access to the project root (`{root}\UserManagementWithEmailOtp`)
 
 ## Setup
 
