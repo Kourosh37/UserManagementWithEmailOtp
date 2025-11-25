@@ -12,7 +12,7 @@ FastAPI service for registering and logging in users with a 6-digit email OTP. A
 
 ### 1) Create and activate a virtual environment
 ```powershell
-cd C:\Users\stran\Desktop\UserManagementWithEmailOtp
+cd {root}\UserManagementWithEmailOtp
 python -m venv venv
 .\venv\Scripts\activate        # Windows
 # source venv/bin/activate    # macOS/Linux
