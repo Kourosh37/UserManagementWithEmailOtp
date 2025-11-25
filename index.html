@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTP Authentication Service</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 450px;
+            transition: all 0.3s ease;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .logo p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-container {
+            display: none;
+        }
+
+        .form-container.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background: #cce7ff;
+            color: #004085;
+            border: 1px solid #b3d7ff;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .nav-buttons .btn {
+            flex: 1;
+        }
+
+        .otp-timer {
+            text-align: center;
+            margin: 15px 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .otp-inputs {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .otp-input {
+            width: 50px;
+            height: 50px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            background: #f8f9fa;
+        }
+
+        .otp-input:focus {
+            border-color: #667eea;
+            background: white;
+        }
+
+        .user-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .user-info h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .token-display {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .step {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #e1e5e9;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 10px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .step.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .step.completed {
+            background: #28a745;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>🔐 Authentication Service</h1>
+            <p>Register and Login with OTP Verification</p>
+        </div>
+
+        <!-- Step Indicator -->
+        <div class="step-indicator">
+            <div class="step active" id="step1">1</div>
+            <div class="step" id="step2">2</div>
+            <div class="step" id="step3">3</div>
+        </div>
+
+        <!-- Messages -->
+        <div id="message" class="message" style="display: none;"></div>
+
+        <!-- Register Form -->
+        <div id="registerForm" class="form-container active">
+            <div class="form-group">
+                <label for="regEmail">Email:</label>
+                <input type="email" id="regEmail" placeholder="example@gmail.com">
+            </div>
+            <div class="form-group">
+                <label for="regPassword">Password:</label>
+                <input type="password" id="regPassword" placeholder="Minimum 6 characters">
+            </div>
+            <button class="btn" onclick="register()">Register & Get OTP</button>
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="showLogin()">Login to Account</button>
+            </div>
+        </div>
+
+        <!-- Login Form -->
+        <div id="loginForm" class="form-container">
+            <div class="form-group">
+                <label for="loginEmail">Email:</label>
+                <input type="email" id="loginEmail" placeholder="example@gmail.com">
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Password:</label>
+                <input type="password" id="loginPassword" placeholder="Enter your password">
+            </div>
+            <button class="btn" onclick="login()">Login</button>
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="showRegister()">Create New Account</button>
+            </div>
+        </div>
+
+        <!-- OTP Verification Form -->
+        <div id="otpForm" class="form-container">
+            <div class="user-info">
+                <h3 id="userEmail"></h3>
+                <p>Verification code has been sent to your email</p>
+            </div>
+            
+            <div class="otp-inputs">
+                <input type="text" class="otp-input" maxlength="1" oninput="moveToNext(this, 1)">
+                <input type="text" class="otp-input" maxlength="1" oninput="moveToNext(this, 2)">
+                <input type="text" class="otp-input" maxlength="1" oninput="moveToNext(this, 3)">
+                <input type="text" class="otp-input" maxlength="1" oninput="moveToNext(this, 4)">
+                <input type="text" class="otp-input" maxlength="1" oninput="moveToNext(this, 5)">
+                <input type="text" class="otp-input" maxlength="1" oninput="moveToNext(this, 6)">
+            </div>
+
+            <div class="otp-timer">
+                Time remaining: <span id="timer">02:00</span>
+            </div>
+
+            <button class="btn" onclick="verifyOTP()">Verify Code</button>
+            <button class="btn btn-secondary" onclick="resendOTP()">Resend Code</button>
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="showRegister()">Go Back</button>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="form-container">
+            <div class="user-info">
+                <h3>👋 Welcome!</h3>
+                <p id="welcomeMessage"></p>
+            </div>
+            
+            <div class="token-display">
+                <strong>Access Token:</strong><br>
+                <span id="accessToken"></span>
+            </div>
+
+            <button class="btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000';
+        let currentEmail = '';
+        let otpTimer = null;
+        let timeLeft = 120;
+
+        // Show register form
+        function showRegister() {
+            hideAllForms();
+            document.getElementById('registerForm').classList.add('active');
+            updateSteps(1);
+            clearMessage();
+        }
+
+        // Show login form
+        function showLogin() {
+            hideAllForms();
+            document.getElementById('loginForm').classList.add('active');
+            updateSteps(1);
+            clearMessage();
+        }
+
+        // Show OTP form
+        function showOTPForm(email) {
+            currentEmail = email;
+            hideAllForms();
+            document.getElementById('otpForm').classList.add('active');
+            document.getElementById('userEmail').textContent = email;
+            updateSteps(2);
+            startOTPTimer();
+            clearMessage();
+        }
+
+        // Show dashboard
+        function showDashboard(token, email) {
+            hideAllForms();
+            document.getElementById('dashboard').classList.add('active');
+            document.getElementById('welcomeMessage').textContent = `You are logged in as ${email}`;
+            document.getElementById('accessToken').textContent = token;
+            updateSteps(3);
+            clearMessage();
+        }
+
+        // Hide all forms
+        function hideAllForms() {
+            document.querySelectorAll('.form-container').forEach(form => {
+                form.classList.remove('active');
+            });
+        }
+
+        // Update steps
+        function updateSteps(activeStep) {
+            const steps = document.querySelectorAll('.step');
+            steps.forEach((step, index) => {
+                step.classList.remove('active', 'completed');
+                if (index + 1 < activeStep) {
+                    step.classList.add('completed');
+                } else if (index + 1 === activeStep) {
+                    step.classList.add('active');
+                }
+            });
+        }
+
+        // Show message
+        function showMessage(text, type = 'info') {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = `message ${type}`;
+            messageEl.style.display = 'block';
+        }
+
+        // Clear message
+        function clearMessage() {
+            document.getElementById('message').style.display = 'none';
+        }
+
+        // Move between OTP inputs
+        function moveToNext(input, nextIndex) {
+            if (input.value.length === 1) {
+                const nextInput = document.querySelector(`.otp-input:nth-child(${nextIndex + 1})`);
+                if (nextInput) {
+                    nextInput.focus();
+                }
+            }
+        }
+
+        // OTP Timer
+        function startOTPTimer() {
+            timeLeft = 120;
+            updateTimerDisplay();
+            clearInterval(otpTimer);
+            otpTimer = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+                if (timeLeft <= 0) {
+                    clearInterval(otpTimer);
+                    showMessage('Verification code has expired', 'error');
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('timer').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // Register
+        async function register() {
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+
+            if (!email || !password) {
+                showMessage('Please fill in all fields', 'error');
+                return;
+            }
+
+            if (password.length < 6) {
+                showMessage('Password must be at least 6 characters', 'error');
+                return;
+            }
+
+            try {
+                showMessage('Registering...', 'info');
+                
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(data.message, 'success');
+                    showOTPForm(email);
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (error) {
+                showMessage('Error connecting to server', 'error');
+                console.error('Error:', error);
+            }
+        }
+
+        // Login
+        async function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                showMessage('Please fill in all fields', 'error');
+                return;
+            }
+
+            try {
+                showMessage('Logging in...', 'info');
+                
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage('Login successful!', 'success');
+                    showDashboard(data.access_token, email);
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (error) {
+                showMessage('Error connecting to server', 'error');
+                console.error('Error:', error);
+            }
+        }
+
+        // Verify OTP
+        async function verifyOTP() {
+            const otpInputs = document.querySelectorAll('.otp-input');
+            const otpCode = Array.from(otpInputs).map(input => input.value).join('');
+
+            if (otpCode.length !== 6) {
+                showMessage('Please enter the complete 6-digit code', 'error');
+                return;
+            }
+
+            try {
+                showMessage('Verifying code...', 'info');
+                
+                const response = await fetch(`${API_BASE}/auth/verify-otp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: currentEmail,
+                        code: otpCode
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(data.message, 'success');
+                    // After OTP verification, redirect to login
+                    setTimeout(() => {
+                        showLogin();
+                        document.getElementById('loginEmail').value = currentEmail;
+                    }, 2000);
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (error) {
+                showMessage('Error connecting to server', 'error');
+                console.error('Error:', error);
+            }
+        }
+
+        // Resend OTP
+        async function resendOTP() {
+            try {
+                showMessage('Resending code...', 'info');
+                
+                const response = await fetch(`${API_BASE}/auth/resend-otp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: currentEmail
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(data.message, 'success');
+                    startOTPTimer();
+                    // Clear OTP inputs
+                    document.querySelectorAll('.otp-input').forEach(input => {
+                        input.value = '';
+                    });
+                    document.querySelector('.otp-input').focus();
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (error) {
+                showMessage('Error connecting to server', 'error');
+                console.error('Error:', error);
+            }
+        }
+
+        // Logout
+        function logout() {
+            showRegister();
+            document.getElementById('regEmail').value = '';
+            document.getElementById('regPassword').value = '';
+            document.getElementById('loginEmail').value = '';
+            document.getElementById('loginPassword').value = '';
+            currentEmail = '';
+            clearInterval(otpTimer);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            showRegister();
+            
+            // Auto-focus first OTP input when OTP form is shown
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('otp-input')) {
+                    e.target.select();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
