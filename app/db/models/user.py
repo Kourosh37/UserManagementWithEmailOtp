@@ -1,9 +1,13 @@
+"""SQLAlchemy model for application users."""
+
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, func
 
 from app.db.base import Base
 
 
 class User(Base):
+    """User table storing login credentials and verification flags."""
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)

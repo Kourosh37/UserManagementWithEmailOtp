@@ -1,21 +1,31 @@
+"""Pydantic schemas for authentication-related payloads and responses."""
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class UserBase(BaseModel):
+    """Base fields shared across user-related schemas."""
+
     email: EmailStr
 
 
 class UserCreate(UserBase):
+    """Payload for registration requests."""
+
     password: str
 
 
 class UserLogin(UserBase):
+    """Payload for login attempts."""
+
     password: str
 
 
 class UserResponse(UserBase):
+    """Response body representing a user record."""
+
     id: int
     is_active: bool
     is_verified: bool
@@ -25,5 +35,7 @@ class UserResponse(UserBase):
 
 
 class Token(BaseModel):
+    """Bearer token response returned after successful authentication."""
+
     access_token: str
     token_type: str = "bearer"

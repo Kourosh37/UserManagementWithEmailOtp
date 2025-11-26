@@ -1,3 +1,5 @@
+"""SMTP email sender for delivering OTP codes."""
+
 import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -9,7 +11,15 @@ from app.core.config import settings
 
 
 async def send_otp_email(email: str, otp_code: str) -> tuple[bool, str | None]:
+    """Send the OTP code to the provided email address via SMTP.
+
+    This helper runs blocking SMTP calls in a worker thread so the async
+    FastAPI request is not blocked. It depends on SMTP configuration loaded
+    in `settings` and returns a success flag plus an optional error message.
+    """
+
     def _send() -> None:
+        """Inner sync function executed in a thread."""
         if not all([settings.SMTP_SERVER, settings.SMTP_USERNAME, settings.SMTP_PASSWORD, settings.FROM_EMAIL]):
             raise RuntimeError("SMTP settings are incomplete.")
 

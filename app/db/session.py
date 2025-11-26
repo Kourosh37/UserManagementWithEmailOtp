@@ -1,3 +1,5 @@
+"""Async SQLAlchemy session management."""
+
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -6,6 +8,7 @@ from app.core.config import settings
 
 
 def _normalize_database_url(url: str) -> str:
+    """Ensure the configured URL includes the asyncpg driver."""
     if url.startswith("postgresql://") and "+asyncpg" not in url:
         return url.replace("postgresql://", "postgresql+asyncpg://", 1)
     return url
@@ -17,5 +20,6 @@ async_session_factory = async_sessionmaker(engine, expire_on_commit=False, class
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """Yield a database session within a managed context."""
     async with async_session_factory() as session:
         yield session

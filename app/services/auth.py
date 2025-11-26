@@ -1,3 +1,5 @@
+"""Authentication domain logic orchestrating users, OTP, and JWT issuance."""
+
 from datetime import timedelta
 
 from fastapi import HTTPException, status
@@ -14,14 +16,26 @@ from app.services.otp import OTPService
 
 
 class AuthService:
+    """High-level service used by API routes; holds DB session and OTP service."""
+
     def __init__(self, session: AsyncSession, otp_service: OTPService):
+        """Inject dependencies so the service can hit both the DB and Redis."""
         self.session = session
         self.otp_service = otp_service
 
     async def _get_user_by_email(self, email: str) -> User | None:
+        """Fetch a user by email; shared helper to avoid repeated query code."""
         return await self.session.scalar(select(User).where(User.email == email))
 
     async def register(self, payload: UserCreate) -> User:
+        """Create a user, hash their password, and send an OTP for verification.
+
+        Dependencies:
+        - SQLAlchemy session for persistence
+        - OTPService to mint a code stored in Redis
+        - `send_otp_email` to deliver the code via SMTP
+        """
+
         existing_user = await self._get_user_by_email(payload.email)
         if existing_user:
             raise HTTPException(
@@ -51,6 +65,8 @@ class AuthService:
         return user
 
     async def verify_otp(self, payload: OTPVerify) -> User:
+        """Validate a submitted code and activate the corresponding user."""
+
         user = await self._get_user_by_email(payload.email)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
@@ -69,6 +85,8 @@ class AuthService:
         return user
 
     async def resend_otp(self, email: str) -> None:
+        """Issue and send a fresh OTP for a user needing another email."""
+
         user = await self._get_user_by_email(email)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
@@ -83,6 +101,8 @@ class AuthService:
             )
 
     async def login(self, payload: UserLogin) -> str:
+        """Authenticate a verified user and mint a short-lived JWT access token."""
+
         user = await self._get_user_by_email(payload.email)
         if not user or not verify_password(payload.password, user.hashed_password):
             raise HTTPException(

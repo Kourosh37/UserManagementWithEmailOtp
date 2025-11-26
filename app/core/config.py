@@ -1,3 +1,5 @@
+"""Application configuration powered by pydantic-settings."""
+
 from functools import lru_cache
 from typing import List
 
@@ -6,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Centralized strongly-typed configuration loaded from `.env`."""
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     PROJECT_NAME: str = "Auth Service"
@@ -35,6 +39,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    """Cache and return a singleton Settings instance to avoid re-parsing env."""
     return Settings()
 
 

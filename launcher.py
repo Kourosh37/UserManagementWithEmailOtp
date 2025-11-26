@@ -1,3 +1,5 @@
+"""One-shot launcher to set up Python, virtual env, containers, and the API."""
+
 import json
 import os
 import platform
@@ -15,6 +17,7 @@ VENV_DIR = ROOT / ".venv"
 
 
 def prompt_yes_no(question: str, default: bool = True) -> bool:
+    """Console prompt that returns a boolean while handling default answers."""
     default_text = "[Y/n]" if default else "[y/N]"
     while True:
         choice = input(f"{question} {default_text} ").strip().lower()
@@ -28,11 +31,13 @@ def prompt_yes_no(question: str, default: bool = True) -> bool:
 
 
 def run(cmd, check=True, capture_output=False):
+    """Wrapper around subprocess.run that echoes the command for transparency."""
     print(f"> {' '.join(cmd)}")
     return subprocess.run(cmd, check=check, capture_output=capture_output, text=True)
 
 
 def ensure_uv():
+    """Ensure the `uv` tool is installed; optionally install it via pip."""
     uv_cmd = shutil.which("uv")
     if uv_cmd:
         return uv_cmd
@@ -47,6 +52,7 @@ def ensure_uv():
 
 
 def try_capture(cmd):
+    """Run a command and swallow errors, returning None if execution fails."""
     try:
         return run(cmd, capture_output=True)
     except Exception:
@@ -54,6 +60,11 @@ def try_capture(cmd):
 
 
 def find_python_path(version: str = "3.12", uv_cmd: str | None = None) -> str | None:
+    """Find a Python interpreter matching the requested version.
+
+    The search order tries the Windows py launcher, direct pythonX.Y calls, uv
+    managed interpreters, and common install locations on different platforms.
+    """
     # Try Windows py launcher
     result = try_capture(["py", f"-{version}", "-c", "import sys; print(sys.executable)"])
     if result and result.returncode == 0 and result.stdout.strip():
@@ -107,6 +118,7 @@ def find_python_path(version: str = "3.12", uv_cmd: str | None = None) -> str | 
 
 
 def ensure_python(version: str, uv_cmd: str) -> str:
+    """Return an interpreter path, installing with uv if not present."""
     path = find_python_path(version, uv_cmd)
     if path:
         print(f"Using Python {version} at: {path}")
@@ -124,6 +136,7 @@ def ensure_python(version: str, uv_cmd: str) -> str:
 
 
 def ensure_env_file():
+    """Create a .env from .env.example if missing so the app can start."""
     if ENV_FILE.exists():
         return
     if ENV_EXAMPLE.exists() and prompt_yes_no("No .env found. Copy from .env.example?", default=True):
@@ -134,6 +147,7 @@ def ensure_env_file():
 
 
 def parse_env():
+    """Parse key/value pairs from the .env file into a dictionary."""
     data = {}
     if not ENV_FILE.exists():
         return data
@@ -147,6 +161,7 @@ def parse_env():
 
 
 def report_env_gaps(env):
+    """Warn about missing required or SMTP-related environment keys."""
     required_keys = ["DATABASE_URL", "REDIS_URL", "SECRET_KEY"]
     missing = [k for k in required_keys if not env.get(k)]
     if missing:
@@ -159,6 +174,7 @@ def report_env_gaps(env):
 
 
 def parse_database_settings(env):
+    """Break down the database URL for container creation defaults."""
     db_url = env.get(
         "DATABASE_URL",
         "postgresql+asyncpg://postgres:postgres@localhost:5432/user_management",
@@ -172,6 +188,7 @@ def parse_database_settings(env):
 
 
 def parse_redis_settings(env):
+    """Extract host port from the Redis URL for container startup."""
     redis_url = env.get("REDIS_URL", "redis://localhost:6379/0")
     parsed = urlparse(redis_url)
     port = parsed.port or 6379
@@ -179,6 +196,7 @@ def parse_redis_settings(env):
 
 
 def port_available(port: int) -> bool:
+    """Check whether a TCP port can be bound (used before starting containers)."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
@@ -189,6 +207,7 @@ def port_available(port: int) -> bool:
 
 
 def find_free_port(start_port: int, limit: int = 20) -> int | None:
+    """Find the first available port in a consecutive range starting at start_port."""
     for p in range(start_port, start_port + limit):
         if port_available(p):
             return p
@@ -196,6 +215,7 @@ def find_free_port(start_port: int, limit: int = 20) -> int | None:
 
 
 def update_env_database_port(env: dict, new_port: int):
+    """Update DATABASE_URL in .env to point at a new local port."""
     if not ENV_FILE.exists():
         return
     db_url = env.get("DATABASE_URL")
@@ -230,20 +250,24 @@ def update_env_database_port(env: dict, new_port: int):
 
 
 def ensure_venv(uv_cmd):
+    """Return True if the virtual environment already exists."""
     return VENV_DIR.exists()
 
 
 def create_venv(uv_cmd: str, python_path: str):
+    """Create a new virtual environment with uv."""
     run([uv_cmd, "venv", "--python", python_path])
 
 
 def venv_python() -> Path:
+    """Return the path to the venv's python executable on this OS."""
     if os.name == "nt":
         return VENV_DIR / "Scripts" / "python.exe"
     return VENV_DIR / "bin" / "python"
 
 
 def venv_python_matches(version: str) -> bool:
+    """Verify the venv python version matches the target major.minor."""
     py = venv_python()
     if not py.exists():
         return False
@@ -252,21 +276,25 @@ def venv_python_matches(version: str) -> bool:
 
 
 def recreate_venv(uv_cmd: str, python_path: str):
+    """Delete and recreate the venv (used when the version is mismatched)."""
     if VENV_DIR.exists():
         shutil.rmtree(VENV_DIR)
     create_venv(uv_cmd, python_path)
 
 
 def install_dependencies(uv_cmd, python_path: str):
+    """Install requirements into the venv using uv pip after user confirmation."""
     if prompt_yes_no("Install project dependencies with uv pip?", default=True):
         run([uv_cmd, "pip", "install", "--python", python_path, "-r", "requirements.txt"])
 
 
 def docker_available():
+    """Return True if Docker CLI is on PATH (daemon may still be stopped)."""
     return shutil.which("docker") is not None
 
 
 def install_docker():
+    """Offer to install Docker using a platform-appropriate command."""
     system = platform.system()
     if system == "Windows":
         cmd = ["winget", "install", "-e", "--id", "Docker.DockerDesktop"]
@@ -283,6 +311,7 @@ def install_docker():
 
 
 def container_exists(name):
+    """Check whether a Docker container by the given name already exists."""
     try:
         result = run(["docker", "ps", "-a", "--format", "{{.Names}}"], capture_output=True)
         return name in result.stdout.splitlines()
@@ -291,6 +320,7 @@ def container_exists(name):
 
 
 def container_running(name):
+    """Check whether a Docker container by the given name is currently running."""
     try:
         result = run(["docker", "ps", "--format", "{{.Names}}"], capture_output=True)
         return name in result.stdout.splitlines()
@@ -299,6 +329,11 @@ def container_running(name):
 
 
 def ensure_postgres_container(cfg, env: dict):
+    """Create or start the PostgreSQL Docker container based on env config.
+
+    Relies on `port_available` and `find_free_port` to avoid conflicts and
+    optionally rewrites DATABASE_URL when a new port is chosen.
+    """
     name = "usermgmt-postgres"
     if not docker_available():
         print("Docker not available; skipping PostgreSQL container.")
@@ -352,6 +387,7 @@ def ensure_postgres_container(cfg, env: dict):
 
 
 def ensure_redis_container(cfg, env: dict):
+    """Create or start the Redis Docker container based on env config."""
     name = "usermgmt-redis"
     if not docker_available():
         print("Docker not available; skipping Redis container.")
@@ -430,6 +466,7 @@ def ensure_redis_container(cfg, env: dict):
 
 
 def test_smtp(env: dict):
+    """Optional interactive SMTP connectivity test using .env credentials."""
     smtp_server = env.get("SMTP_SERVER")
     smtp_port = int(env.get("SMTP_PORT", "0") or 0)
     smtp_user = env.get("SMTP_USERNAME")
@@ -470,6 +507,7 @@ def test_smtp(env: dict):
 
 
 def start_api(python_path: str):
+    """Prompt to start uvicorn with reload using the selected interpreter."""
     if prompt_yes_no("Start FastAPI server now?", default=True):
         print("Starting API server (Ctrl+C to stop)...")
         run(
@@ -489,6 +527,7 @@ def start_api(python_path: str):
 
 
 def main():
+    """Primary orchestrator for the launcher workflow."""
     uv_cmd = ensure_uv()
     target_python = ensure_python("3.12", uv_cmd)
     ensure_env_file()

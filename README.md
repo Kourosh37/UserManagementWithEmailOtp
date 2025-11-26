@@ -69,21 +69,21 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 Swagger: http://127.0.0.1:8000/docs
 
 ## Project structure
-- `app/main.py` — FastAPI app, router include, CORS, lifespan
-- `app/api/routes/auth.py` — register, verify-otp, resend-otp, login
-- `app/services/auth.py` — business logic; uses `OTPService` + email sender
-- `app/services/otp.py` — Redis OTP issue/validate/invalidate
-- `app/services/email.py` — SMTP email sending
-- `app/db/session.py` — async engine/session (asyncpg)
-- `app/db/models` — SQLAlchemy models (User)
-- `app/core/config.py` — settings via pydantic-settings
-- `index.html` — minimal frontend (register/login/OTP)
+- `app/main.py` - FastAPI app, router include, CORS, lifespan
+- `app/api/routes/auth.py` - register, verify-otp, resend-otp, login
+- `app/services/auth.py` - business logic; uses `OTPService` + email sender
+- `app/services/otp.py` - Redis OTP issue/validate/invalidate
+- `app/services/email.py` - SMTP email sending
+- `app/db/session.py` - async engine/session (asyncpg)
+- `app/db/models` - SQLAlchemy models (User)
+- `app/core/config.py` - settings via pydantic-settings
+- `index.html` - minimal frontend (register/login/OTP)
 
 ## API overview
-- `POST /auth/register` — body `{email, password}`; sends OTP; user inactive until verify
-- `POST /auth/verify-otp` — `{email, code}`; marks user verified/active
-- `POST /auth/resend-otp` — `{email}`; sends new OTP
-- `POST /auth/login` — `{email, password}`; requires verified user; returns `{access_token, token_type}`
+- `POST /auth/register` - body `{email, password}`; sends OTP; user inactive until verify
+- `POST /auth/verify-otp` - `{email, code}`; marks user verified/active
+- `POST /auth/resend-otp` - `{email}`; sends new OTP
+- `POST /auth/login` - `{email, password}`; requires verified user; returns `{access_token, token_type}`
 
 ## Frontend
 - Serve: `python -m http.server 5500` then open http://127.0.0.1:5500/index.html
@@ -92,7 +92,7 @@ Swagger: http://127.0.0.1:8000/docs
 
 ## Tips
 - SMTP: Use correct `FROM_EMAIL`/`SMTP_USERNAME`, App Password for Gmail, check spam.
-- Ports busy? Launcher suggests alternatives and can update `.env`.
+- Ports busy- Launcher suggests alternatives and can update `.env`.
 - OTP expires after `OTP_EXPIRE_SECONDS`; resend to refresh.
 
 ## Troubleshooting

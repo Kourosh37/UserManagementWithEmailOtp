@@ -210,7 +210,7 @@
                             <label for="regPassword">Password</label>
                             <div class="input-wrap">
                                 <input type="password" id="regPassword" name="reg-password" placeholder="Minimum 6 characters" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
-                                <button class="toggle-btn" type="button" data-toggle="#regPassword">👁</button>
+                                <button class="toggle-btn" type="button" data-toggle="#regPassword">Show</button>
                             </div>
                         </div>
                     </div>
@@ -232,7 +232,7 @@
                             <label for="loginPassword">Password</label>
                             <div class="input-wrap">
                                 <input type="password" id="loginPassword" name="login-password" placeholder="Password" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
-                                <button class="toggle-btn" type="button" data-toggle="#loginPassword">👁</button>
+                                <button class="toggle-btn" type="button" data-toggle="#loginPassword">Show</button>
                             </div>
                         </div>
                     </div>
@@ -272,12 +272,18 @@
     </div>
 
     <script>
+        // Client-side helpers for the OTP flow. The functions below orchestrate UI state
+        // and talk to the FastAPI backend exposed at API_BASE.
         const API_BASE = 'http://127.0.0.1:8000';
+        // Tracks which email address is awaiting OTP verification.
         let currentEmail = '';
+        // Timer handle and countdown seconds for OTP expiry messaging.
         let otpTimer = null;
         let timeLeft = 120;
+        // Node list of the 6 OTP input boxes used by several helpers below.
         const otpInputs = Array.from(document.querySelectorAll('.otp-input'));
 
+        // Wire up tab buttons and action buttons to their respective handlers.
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => setView(btn.dataset.view));
         });
@@ -292,6 +298,7 @@
         setupOtpInputs();
         setupPasswordToggles();
 
+        // Toggle between register/login/OTP panels and reset transient messages.
         function setView(viewId) {
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.view === viewId);
@@ -302,24 +309,29 @@
             clearMessage();
         }
 
+        // Render a dismissible status banner. Used by all API calls and validations.
         function showMessage(text, type = 'info') {
             const box = document.getElementById('message');
             box.textContent = text;
             box.className = `message ${type} show`;
         }
+        // Clear the message banner text and styling.
         function clearMessage() {
             const box = document.getElementById('message');
             box.className = 'message';
             box.textContent = '';
         }
 
+        // Join the six OTP input values into a single string sent to the API.
         function getOtpCode() {
             return otpInputs.map(i => i.value).join('');
         }
+        // Empty all OTP inputs and focus the first box after a resend.
         function resetOtpInputs() {
             otpInputs.forEach(i => i.value = '');
             otpInputs[0].focus();
         }
+        // Attach input/keyboard handlers so OTP digits auto-advance and backspace works.
         function setupOtpInputs() {
             otpInputs.forEach((input, idx) => {
                 input.addEventListener('input', (e) => {
@@ -344,6 +356,7 @@
                 });
             });
         }
+        // Allow users to toggle password visibility in both forms.
         function setupPasswordToggles() {
             document.querySelectorAll('.toggle-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -351,11 +364,12 @@
                     if (!target) return;
                     const isPassword = target.getAttribute('type') === 'password';
                     target.setAttribute('type', isPassword ? 'text' : 'password');
-                    btn.textContent = isPassword ? '🙈' : '👁';
+                    btn.textContent = isPassword ? 'Hide' : 'Show';
                 });
             });
         }
 
+        // Start a 2-minute countdown reflecting server-side OTP expiry.
         function startOTPTimer() {
             timeLeft = 120;
             updateTimerDisplay();
@@ -369,12 +383,14 @@
                 }
             }, 1000);
         }
+        // Update the timer label on screen; used by the interval and reset.
         function updateTimerDisplay() {
             const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
             const seconds = (timeLeft % 60).toString().padStart(2, '0');
             document.getElementById('timer').textContent = `${minutes}:${seconds}`;
         }
 
+        // Show a simple timeline of the last action and token (if logged in).
         function renderSummary({ title, email, status, token }) {
             const box = document.getElementById('summary');
             let html = `<div><strong>${title}</strong></div>`;
@@ -384,6 +400,7 @@
             box.innerHTML = html;
         }
 
+        // Call the backend registration endpoint, store the email for OTP, and start the timer.
         async function register() {
             const email = document.getElementById('regEmail').value.trim();
             const password = document.getElementById('regPassword').value.trim();
@@ -415,6 +432,7 @@
             }
         }
 
+        // Attempt login; if the server says the email is unverified, we branch to OTP flow.
         async function login() {
             const email = document.getElementById('loginEmail').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
@@ -450,6 +468,7 @@
             }
         }
 
+        // Submit the 6-digit OTP to the backend for verification and activate the account.
         async function verifyOTP() {
             const code = getOtpCode();
             if (code.length !== 6) return showMessage('Enter the 6-digit code', 'error');
@@ -476,11 +495,13 @@
             }
         }
 
+        // Public handler for the resend button; delegates to the reusable helper below.
         async function resendOTP() {
             if (!currentEmail) return showMessage('No email to resend code for', 'error');
             await resendOtpForEmail(currentEmail, false);
         }
 
+        // Re-request an OTP for a given email; used by both login fallback and OTP screen.
         async function resendOtpForEmail(email, keepTimer = false) {
             try {
                 const response = await fetch(`${API_BASE}/auth/resend-otp`, {
@@ -504,11 +525,12 @@
             }
         }
 
+        // Clear all inputs (works across panels) to avoid stale autofill data.
         function clearAllInputs() {
             document.querySelectorAll('input').forEach(inp => inp.value = '');
         }
 
-        // initialize after defining helpers
+        // Initialize the page by clearing autofill, selecting the register tab, and re-clearing shortly after load.
         clearAllInputs();
         setView('registerView');
         // double-clear shortly after load to beat browser autofill

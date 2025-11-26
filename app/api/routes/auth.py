@@ -1,3 +1,5 @@
+"""HTTP route handlers for authentication and OTP operations."""
+
 from fastapi import APIRouter, Depends, status
 
 from app.api import deps
@@ -14,6 +16,8 @@ async def register_user(
     payload: UserCreate,
     auth_service: AuthService = Depends(deps.get_auth_service),
 ) -> Message:
+    """Create a new user record and dispatch an OTP email for verification."""
+
     await auth_service.register(payload)
     return Message(message="Verification code sent to your email.")
 
@@ -23,6 +27,8 @@ async def verify_otp(
     payload: OTPVerify,
     auth_service: AuthService = Depends(deps.get_auth_service),
 ) -> Message:
+    """Confirm an email address using the submitted OTP code."""
+
     await auth_service.verify_otp(payload)
     return Message(message="Account verified successfully.")
 
@@ -32,6 +38,8 @@ async def resend_otp(
     payload: OTPRequest,
     auth_service: AuthService = Depends(deps.get_auth_service),
 ) -> Message:
+    """Issue a fresh OTP to the given email address."""
+
     await auth_service.resend_otp(payload.email)
     return Message(message="A new verification code has been sent.")
 
@@ -41,5 +49,7 @@ async def login(
     payload: UserLogin,
     auth_service: AuthService = Depends(deps.get_auth_service),
 ) -> Token:
+    """Authenticate a verified user and return a bearer access token."""
+
     token = await auth_service.login(payload)
     return Token(access_token=token, token_type="bearer")
