@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OTP Auth</title>
+    <title>SecureAuth | Modern OTP Verification</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --bg: #0b1220;
@@ -14,9 +15,19 @@
             --accent: #0ea5e9;
             --accent-2: #22c55e;
             --error: #f87171;
+            --success: #22c55e;
+            --warning: #f59e0b;
             --shadow: 0 18px 60px rgba(0,0,0,0.45);
+            --card-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        * { box-sizing: border-box; }
+        
+        * { 
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
         body {
             margin: 0;
             font-family: "Inter", system-ui, -apple-system, sans-serif;
@@ -25,26 +36,84 @@
                         linear-gradient(135deg, #0b1220, #0f172a 60%, #0a0f1c);
             color: var(--text);
             min-height: 100vh;
-            padding: 28px 16px 40px;
-        }
-        .shell {
-            max-width: 1120px;
-            margin: 0 auto;
-            background: rgba(15, 23, 42, 0.9);
-            border: 1px solid var(--line);
-            border-radius: 22px;
-            box-shadow: var(--shadow);
-            overflow: hidden;
-        }
-        header {
-            padding: 22px 26px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        
+        .auth-container {
+            width: 100%;
+            max-width: 440px;
+            position: relative;
+        }
+        
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            transition: var(--transition);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            opacity: 0;
+            transform: translateY(20px);
+            pointer-events: none;
+        }
+        
+        .card.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: all;
+            position: relative;
+        }
+        
+        .card-header {
+            padding: 28px 28px 20px;
+            text-align: center;
             border-bottom: 1px solid var(--line);
         }
-        .brand h1 { margin: 0; font-size: 20px; letter-spacing: 0.2px; }
-        .brand p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+        
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .brand-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--bg);
+            font-size: 20px;
+        }
+        
+        .brand h1 { 
+            margin: 0; 
+            font-size: 24px; 
+            letter-spacing: 0.2px; 
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+        
+        .brand p { 
+            margin: 4px 0 0; 
+            color: var(--muted); 
+            font-size: 14px; 
+        }
+        
         .tabs {
             display: inline-flex;
             background: rgba(255,255,255,0.04);
@@ -52,52 +121,63 @@
             border-radius: 12px;
             overflow: hidden;
         }
+        
         .tab-btn {
-            padding: 10px 16px;
+            padding: 10px 20px;
             border: none;
             background: transparent;
             color: var(--muted);
             cursor: pointer;
             font-weight: 600;
+            transition: var(--transition);
         }
+        
         .tab-btn.active {
             background: linear-gradient(135deg, var(--accent), var(--accent-2));
             color: #0b1220;
         }
-        .grid {
-            display: grid;
-            grid-template-columns: 1.1fr 0.9fr;
-            gap: 18px;
-            padding: 22px 24px 26px;
+        
+        .card-body {
+            padding: 28px;
         }
-        @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } header { flex-direction: column; align-items: flex-start; gap: 12px; } }
-        .panel {
-            background: var(--panel);
-            border: 1px solid var(--line);
-            border-radius: 16px;
-            padding: 18px;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
-            display: none;
-            flex-direction: column;
-            gap: 10px;
+        
+        h2 { 
+            margin: 0 0 8px; 
+            font-size: 20px; 
+            font-weight: 700;
+            text-align: center;
         }
-        .panel.active { display: flex; }
-        h2 { margin: 0 0 4px; font-size: 18px; }
-        p { margin: 0 0 12px; color: var(--muted); }
-        label { display: block; margin-bottom: 6px; font-weight: 600; }
+        
+        p { 
+            margin: 0 0 20px; 
+            color: var(--muted); 
+            line-height: 1.5;
+            text-align: center;
+        }
+        
+        label { 
+            display: block; 
+            margin-bottom: 8px; 
+            font-weight: 600; 
+            font-size: 14px;
+        }
+        
         input, .input-wrap {
             width: 100%;
             position: relative;
         }
+        
         input {
             width: 100%;
-            padding: 12px;
+            padding: 14px 16px;
             border-radius: 12px;
             border: 1px solid var(--line);
             background: rgba(255,255,255,0.04);
             color: var(--text);
             font-size: 15px;
+            transition: var(--transition);
         }
+        
         .input-wrap {
             display: flex;
             align-items: center;
@@ -105,13 +185,22 @@
             border-radius: 12px;
             background: rgba(255,255,255,0.04);
             padding-right: 44px;
+            transition: var(--transition);
+            margin-bottom: 16px;
         }
+        
+        .input-wrap:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(14,165,233,0.1);
+        }
+        
         .input-wrap input {
             border: none;
             background: transparent;
-            padding: 12px;
+            padding: 14px 16px;
             margin: 0;
         }
+        
         .toggle-btn {
             position: absolute;
             right: 10px;
@@ -120,12 +209,21 @@
             color: var(--muted);
             cursor: pointer;
             font-size: 16px;
+            transition: var(--transition);
         }
-        input:focus { outline: 2px solid rgba(14,165,233,0.4); border-color: transparent; }
-        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        @media (max-width: 720px) { .row { grid-template-columns: 1fr; } }
+        
+        .toggle-btn:hover {
+            color: var(--text);
+        }
+        
+        input:focus { 
+            outline: none; 
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(14,165,233,0.1);
+        }
+        
         .btn {
-            padding: 12px 14px;
+            padding: 14px 20px;
             border-radius: 12px;
             border: none;
             font-weight: 700;
@@ -133,175 +231,561 @@
             color: #0b1220;
             background: linear-gradient(135deg, var(--accent), var(--accent-2));
             box-shadow: 0 10px 30px rgba(14,165,233,0.3);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            margin-bottom: 16px;
         }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(14,165,233,0.4);
+        }
+        
         .btn.ghost {
             background: transparent;
             color: var(--text);
             border: 1px solid var(--line);
             box-shadow: none;
         }
+        
+        .btn.ghost:hover {
+            background: rgba(255,255,255,0.05);
+            transform: translateY(-2px);
+        }
+        
         .message {
             display: none;
-            padding: 12px 14px;
+            padding: 14px 16px;
             border-radius: 12px;
             font-weight: 600;
-            margin: 0 0 10px;
+            margin: 0 0 16px;
+            transition: var(--transition);
         }
-        .message.show { display: block; }
-        .message.info { background: rgba(14,165,233,0.12); color: #bae6fd; border: 1px solid rgba(14,165,233,0.3); }
-        .message.success { background: rgba(34,197,94,0.12); color: #bbf7d0; border: 1px solid rgba(34,197,94,0.3); }
-        .message.error { background: rgba(239,68,68,0.12); color: #fecdd3; border: 1px solid rgba(239,68,68,0.3); }
-        .otp-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+        
+        .message.show { 
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        
+        .message.info { 
+            background: rgba(14,165,233,0.12); 
+            color: #bae6fd; 
+            border: 1px solid rgba(14,165,233,0.3); 
+        }
+        
+        .message.success { 
+            background: rgba(34,197,94,0.12); 
+            color: #bbf7d0; 
+            border: 1px solid rgba(34,197,94,0.3); 
+        }
+        
+        .message.error { 
+            background: rgba(239,68,68,0.12); 
+            color: #fecdd3; 
+            border: 1px solid rgba(239,68,68,0.3); 
+        }
+        
+        .otp-row { 
+            display: grid; 
+            grid-template-columns: repeat(6, 1fr); 
+            gap: 12px; 
+            margin-bottom: 16px;
+        }
+        
         .otp-input {
             text-align: center;
-            font-size: 18px;
-            padding: 12px 0;
+            font-size: 20px;
+            font-weight: 700;
+            padding: 14px 0;
             border-radius: 12px;
             border: 1px solid var(--line);
             background: rgba(255,255,255,0.04);
             color: var(--text);
+            transition: var(--transition);
         }
-        .summary {
+        
+        .otp-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(14,165,233,0.1);
+        }
+        
+        .timer {
+            font-weight: 700;
+            color: var(--accent);
+        }
+        
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        
+        .divider::before,
+        .divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: var(--line);
+        }
+        
+        .divider span {
+            padding: 0 12px;
+        }
+        
+        .oauth-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .oauth-btn {
+            justify-content: flex-start;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 12px 16px;
+        }
+        
+        .success-card {
+            background: var(--panel);
+            border-radius: 20px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px 30px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--line);
+            opacity: 0;
+            transform: scale(0.9);
+            transition: var(--transition);
+        }
+        
+        .success-card.active {
+            display: flex;
+            animation: successAnimation 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        
+        .success-icon {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            color: var(--bg);
+            font-size: 40px;
+            box-shadow: 0 10px 30px rgba(14,165,233,0.4);
+        }
+        
+        .success-card h2 {
+            font-size: 28px;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .success-card p {
+            font-size: 16px;
+            margin-bottom: 24px;
+            max-width: 400px;
+        }
+        
+        .user-info {
             background: rgba(255,255,255,0.02);
             border: 1px solid var(--line);
             border-radius: 14px;
-            padding: 14px;
-            font-size: 14px;
-            color: var(--text);
+            padding: 20px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 400px;
         }
-        .summary code {
-            display: block;
-            margin-top: 8px;
-            padding: 10px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid var(--line);
-            border-radius: 10px;
-            word-break: break-all;
+        
+        .user-info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--line);
+        }
+        
+        .user-info-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .user-info-label {
+            color: var(--muted);
+            font-weight: 600;
+        }
+        
+        .user-info-value {
+            color: var(--text);
+            font-weight: 600;
+        }
+        
+        .floating-shapes {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+            pointer-events: none;
+        }
+        
+        .shape {
+            position: absolute;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            opacity: 0.1;
+            animation: float 20s infinite linear;
+        }
+        
+        .shape:nth-child(1) {
+            width: 80px;
+            height: 80px;
+            top: 10%;
+            left: 10%;
+            animation-delay: 0s;
+        }
+        
+        .shape:nth-child(2) {
+            width: 120px;
+            height: 120px;
+            top: 60%;
+            left: 80%;
+            animation-delay: -5s;
+        }
+        
+        .shape:nth-child(3) {
+            width: 60px;
+            height: 60px;
+            top: 80%;
+            left: 20%;
+            animation-delay: -10s;
+        }
+        
+        .shape:nth-child(4) {
+            width: 100px;
+            height: 100px;
+            top: 30%;
+            left: 70%;
+            animation-delay: -15s;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        
+        @keyframes successAnimation {
+            0% {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.02);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        @keyframes float {
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+            25% {
+                transform: translate(10px, 15px) rotate(90deg);
+            }
+            50% {
+                transform: translate(0, 30px) rotate(180deg);
+            }
+            75% {
+                transform: translate(-10px, 15px) rotate(270deg);
+            }
+            100% {
+                transform: translate(0, 0) rotate(360deg);
+            }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(14, 165, 233, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(14, 165, 233, 0);
+            }
+        }
+        
+        .switch-view {
+            text-align: center;
+            margin-top: 16px;
+            color: var(--muted);
+        }
+        
+        .switch-view a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .switch-view a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-    <div class="shell">
-        <header>
-            <div class="brand">
-                <h1>OTP Auth</h1>
-                <p>Secure email OTP verification with async FastAPI.</p>
+    <div class="floating-shapes">
+        <div class="shape"></div>
+        <div class="shape"></div>
+        <div class="shape"></div>
+        <div class="shape"></div>
+    </div>
+    
+    <div class="auth-container">
+        <!-- Register Card -->
+        <div id="registerCard" class="card active">
+            <div class="card-header">
+                <div class="brand">
+                    <div class="brand-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div>
+                        <h1>SecureAuth</h1>
+                        <p>Secure email OTP verification</p>
+                    </div>
+                </div>
+                <div class="tabs">
+                    <button class="tab-btn active" data-card="registerCard">Register</button>
+                    <button class="tab-btn" data-card="loginCard">Login</button>
+                </div>
             </div>
-            <div class="tabs">
-                <button class="tab-btn active" data-view="registerView">Register</button>
-                <button class="tab-btn" data-view="loginView">Login</button>
-                <button class="tab-btn" data-view="otpView">OTP</button>
-            </div>
-        </header>
-
-        <div class="grid">
-            <div>
+            <div class="card-body">
                 <div id="message" class="message"></div>
-
-                <div id="registerView" class="panel active">
-                    <h2>Create account</h2>
-                    <p>We email you a 6-digit code to verify your address.</p>
-                    <div class="row">
-                        <div>
-                            <label for="regEmail">Email</label>
-                            <input type="email" id="regEmail" name="reg-email" placeholder="you@example.com" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
-                        </div>
-                        <div>
-                            <label for="regPassword">Password</label>
-                            <div class="input-wrap">
-                                <input type="password" id="regPassword" name="reg-password" placeholder="Minimum 6 characters" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
-                                <button class="toggle-btn" type="button" data-toggle="#regPassword">Show</button>
-                            </div>
-                        </div>
+                
+                <h2>Create account</h2>
+                <p>We email you a 6-digit code to verify your address.</p>
+                
+                <div>
+                    <label for="regEmail">Email</label>
+                    <div class="input-wrap">
+                        <input type="email" id="regEmail" name="reg-email" placeholder="you@example.com" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
                     </div>
-                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                        <button class="btn" id="registerBtn">Register & get OTP</button>
-                        <button class="btn ghost" data-view="loginView">Have an account?</button>
-                    </div>
-                    <div style="height:1px; background:var(--line); margin:12px 0;"></div>
-                    <div style="display:flex; flex-direction:column; gap:10px;">
-                        <button class="btn ghost oauth-btn" data-provider="google" style="justify-content:flex-start; display:flex; gap:10px; align-items:center;">
-                            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 533 544" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path fill="#EA4335" d="M533 278c0-18-2-36-6-53H272v100h147c-6 35-26 64-55 84v69h89c52-48 80-119 80-200Z"/>
-                                <path fill="#34A853" d="M272 544c73 0 134-24 178-66l-89-69c-24 16-54 26-89 26-68 0-126-46-147-108H33v68c44 88 136 149 239 149Z"/>
-                                <path fill="#4285F4" d="M125 327c-10-30-10-63 0-93v-69H33C-11 220-11 324 33 404l92-77Z"/>
-                                <path fill="#FBBC05" d="M272 107c39-1 76 14 104 39l78-78C407 24 347-1 272 0 169 0 77 61 33 165l92 69c21-62 79-108 147-108Z"/>
-                            </svg>
-                            <span style="font-weight:700;">Continue with Google</span>
-                        </button>
-                        <button class="btn ghost oauth-btn" data-provider="github" style="justify-content:flex-start; display:flex; gap:10px; align-items:center;">
-                            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.65 0 8.15c0 3.6 2.29 6.65 5.47 7.73.4.08.55-.18.55-.39 0-.19-.01-.82-.01-1.48-2.01.45-2.53-.5-2.69-.96-.09-.23-.48-.96-.82-1.15-.28-.15-.68-.52-.01-.53.63-.01 1.08.59 1.23.84.72 1.23 1.87.88 2.33.67.07-.53.28-.88.51-1.08-1.78-.21-3.64-.91-3.64-4.05 0-.9.31-1.64.82-2.21-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.84a7.28 7.28 0 0 1 4 0c1.53-1.07 2.2-.84 2.2-.84.44 1.1.16 1.92.08 2.12.51.57.82 1.31.82 2.21 0 3.15-1.87 3.84-3.65 4.05.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.47.55.39A8.05 8.05 0 0 0 16 8.15C16 3.65 12.42 0 8 0Z"/>
-                            </svg>
-                            <span style="font-weight:700;">Continue with GitHub</span>
+                </div>
+                
+                <div>
+                    <label for="regPassword">Password</label>
+                    <div class="input-wrap">
+                        <input type="password" id="regPassword" name="reg-password" placeholder="Minimum 6 characters" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
+                        <button class="toggle-btn" type="button" data-toggle="#regPassword">
+                            <i class="fas fa-eye"></i>
                         </button>
                     </div>
                 </div>
-
-                <div id="loginView" class="panel">
-                    <h2>Login</h2>
-                    <p>Use your verified email and password.</p>
-                    <div class="row">
-                        <div>
-                            <label for="loginEmail">Email</label>
-                            <input type="email" id="loginEmail" name="login-email" placeholder="you@example.com" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
-                        </div>
-                        <div>
-                            <label for="loginPassword">Password</label>
-                            <div class="input-wrap">
-                                <input type="password" id="loginPassword" name="login-password" placeholder="Password" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
-                                <button class="toggle-btn" type="button" data-toggle="#loginPassword">Show</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                        <button class="btn" id="loginBtn">Login</button>
-                        <button class="btn ghost" data-view="registerView">Need an account?</button>
-                    </div>
-                    <div style="height:1px; background:var(--line); margin:12px 0;"></div>
-                    <div style="display:flex; flex-direction:column; gap:10px;">
-                        <button class="btn ghost oauth-btn" data-provider="google" style="justify-content:flex-start; display:flex; gap:10px; align-items:center;">
-                            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 533 544" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path fill="#EA4335" d="M533 278c0-18-2-36-6-53H272v100h147c-6 35-26 64-55 84v69h89c52-48 80-119 80-200Z"/>
-                                <path fill="#34A853" d="M272 544c73 0 134-24 178-66l-89-69c-24 16-54 26-89 26-68 0-126-46-147-108H33v68c44 88 136 149 239 149Z"/>
-                                <path fill="#4285F4" d="M125 327c-10-30-10-63 0-93v-69H33C-11 220-11 324 33 404l92-77Z"/>
-                                <path fill="#FBBC05" d="M272 107c39-1 76 14 104 39l78-78C407 24 347-1 272 0 169 0 77 61 33 165l92 69c21-62 79-108 147-108Z"/>
-                            </svg>
-                            <span style="font-weight:700;">Continue with Google</span>
-                        </button>
-                        <button class="btn ghost oauth-btn" data-provider="github" style="justify-content:flex-start; display:flex; gap:10px; align-items:center;">
-                            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.65 0 8.15c0 3.6 2.29 6.65 5.47 7.73.4.08.55-.18.55-.39 0-.19-.01-.82-.01-1.48-2.01.45-2.53-.5-2.69-.96-.09-.23-.48-.96-.82-1.15-.28-.15-.68-.52-.01-.53.63-.01 1.08.59 1.23.84.72 1.23 1.87.88 2.33.67.07-.53.28-.88.51-1.08-1.78-.21-3.64-.91-3.64-4.05 0-.9.31-1.64.82-2.21-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.84a7.28 7.28 0 0 1 4 0c1.53-1.07 2.2-.84 2.2-.84.44 1.1.16 1.92.08 2.12.51.57.82 1.31.82 2.21 0 3.15-1.87 3.84-3.65 4.05.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.47.55.39A8.05 8.05 0 0 0 16 8.15C16 3.65 12.42 0 8 0Z"/>
-                            </svg>
-                            <span style="font-weight:700;">Continue with GitHub</span>
-                        </button>
-                    </div>
+                
+                <button class="btn" id="registerBtn">
+                    <i class="fas fa-user-plus"></i>
+                    Register & get OTP
+                </button>
+                
+                <div class="switch-view">
+                    Already have an account? <a data-card="loginCard">Sign in</a>
                 </div>
-
-        <div id="otpView" class="panel">
-            <h2>Enter OTP</h2>
-            <p id="otpEmailLabel">Code sent to your email.</p>
-            <div class="otp-row">
-                        <input type="text" maxlength="1" class="otp-input" autocomplete="off" inputmode="numeric" aria-label="OTP digit 1">
-                        <input type="text" maxlength="1" class="otp-input" autocomplete="off" inputmode="numeric" aria-label="OTP digit 2">
-                        <input type="text" maxlength="1" class="otp-input" autocomplete="off" inputmode="numeric" aria-label="OTP digit 3">
-                        <input type="text" maxlength="1" class="otp-input" autocomplete="off" inputmode="numeric" aria-label="OTP digit 4">
-                        <input type="text" maxlength="1" class="otp-input" autocomplete="off" inputmode="numeric" aria-label="OTP digit 5">
-                        <input type="text" maxlength="1" class="otp-input" autocomplete="off" inputmode="numeric" aria-label="OTP digit 6">
-            </div>
-            <div style="color:var(--muted); margin-bottom:10px;">Expires in <span id="timer">02:00</span></div>
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <button class="btn" id="verifyBtn">Verify code</button>
-                <button class="btn ghost" id="resendBtn">Resend code</button>
-                    </div>
+                
+                <div class="divider">
+                    <span>Or continue with</span>
+                </div>
+                
+                <div class="oauth-buttons">
+                    <button class="btn ghost oauth-btn" data-provider="google">
+                        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 533 544" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="#EA4335" d="M533 278c0-18-2-36-6-53H272v100h147c-6 35-26 64-55 84v69h89c52-48 80-119 80-200Z"/>
+                            <path fill="#34A853" d="M272 544c73 0 134-24 178-66l-89-69c-24 16-54 26-89 26-68 0-126-46-147-108H33v68c44 88 136 149 239 149Z"/>
+                            <path fill="#4285F4" d="M125 327c-10-30-10-63 0-93v-69H33C-11 220-11 324 33 404l92-77Z"/>
+                            <path fill="#FBBC05" d="M272 107c39-1 76 14 104 39l78-78C407 24 347-1 272 0 169 0 77 61 33 165l92 69c21-62 79-108 147-108Z"/>
+                        </svg>
+                        <span style="font-weight:700;">Continue with Google</span>
+                    </button>
+                    <button class="btn ghost oauth-btn" data-provider="github">
+                        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.65 0 8.15c0 3.6 2.29 6.65 5.47 7.73.4.08.55-.18.55-.39 0-.19-.01-.82-.01-1.48-2.01.45-2.53-.5-2.69-.96-.09-.23-.48-.96-.82-1.15-.28-.15-.68-.52-.01-.53.63-.01 1.08.59 1.23.84.72 1.23 1.87.88 2.33.67.07-.53.28-.88.51-1.08-1.78-.21-3.64-.91-3.64-4.05 0-.9.31-1.64.82-2.21-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.84a7.28 7.28 0 0 1 4 0c1.53-1.07 2.2-.84 2.2-.84.44 1.1.16 1.92.08 2.12.51.57.82 1.31.82 2.21 0 3.15-1.87 3.84-3.65 4.05.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.47.55.39A8.05 8.05 0 0 0 16 8.15C16 3.65 12.42 0 8 0Z"/>
+                        </svg>
+                        <span style="font-weight:700;">Continue with GitHub</span>
+                    </button>
                 </div>
             </div>
-
-            <div>
-                <div class="panel active" style="min-height:200px;">
-                    <h2>Status</h2>
-                    <p>Progress updates and access token (after login).</p>
-                    <div id="summary" class="summary">No actions yet.</div>
+        </div>
+        
+        <!-- Login Card -->
+        <div id="loginCard" class="card">
+            <div class="card-header">
+                <div class="brand">
+                    <div class="brand-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div>
+                        <h1>SecureAuth</h1>
+                        <p>Secure email OTP verification</p>
+                    </div>
+                </div>
+                <div class="tabs">
+                    <button class="tab-btn" data-card="registerCard">Register</button>
+                    <button class="tab-btn active" data-card="loginCard">Login</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="message" class="message"></div>
+                
+                <h2>Welcome back</h2>
+                <p>Sign in to your SecureAuth account</p>
+                
+                <div>
+                    <label for="loginEmail">Email</label>
+                    <div class="input-wrap">
+                        <input type="email" id="loginEmail" name="login-email" placeholder="you@example.com" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="loginPassword">Password</label>
+                    <div class="input-wrap">
+                        <input type="password" id="loginPassword" name="login-password" placeholder="Enter your password" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false">
+                        <button class="toggle-btn" type="button" data-toggle="#loginPassword">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <button class="btn" id="loginBtn">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Sign In
+                </button>
+                
+                <div class="switch-view">
+                    Don't have an account? <a data-card="registerCard">Sign up</a>
+                </div>
+                
+                <div class="divider">
+                    <span>Or continue with</span>
+                </div>
+                
+                <div class="oauth-buttons">
+                    <button class="btn ghost oauth-btn" data-provider="google">
+                        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 533 544" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="#EA4335" d="M533 278c0-18-2-36-6-53H272v100h147c-6 35-26 64-55 84v69h89c52-48 80-119 80-200Z"/>
+                            <path fill="#34A853" d="M272 544c73 0 134-24 178-66l-89-69c-24 16-54 26-89 26-68 0-126-46-147-108H33v68c44 88 136 149 239 149Z"/>
+                            <path fill="#4285F4" d="M125 327c-10-30-10-63 0-93v-69H33C-11 220-11 324 33 404l92-77Z"/>
+                            <path fill="#FBBC05" d="M272 107c39-1 76 14 104 39l78-78C407 24 347-1 272 0 169 0 77 61 33 165l92 69c21-62 79-108 147-108Z"/>
+                        </svg>
+                        <span style="font-weight:700;">Continue with Google</span>
+                    </button>
+                    <button class="btn ghost oauth-btn" data-provider="github">
+                        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.65 0 8.15c0 3.6 2.29 6.65 5.47 7.73.4.08.55-.18.55-.39 0-.19-.01-.82-.01-1.48-2.01.45-2.53-.5-2.69-.96-.09-.23-.48-.96-.82-1.15-.28-.15-.68-.52-.01-.53.63-.01 1.08.59 1.23.84.72 1.23 1.87.88 2.33.67.07-.53.28-.88.51-1.08-1.78-.21-3.64-.91-3.64-4.05 0-.9.31-1.64.82-2.21-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.84a7.28 7.28 0 0 1 4 0c1.53-1.07 2.2-.84 2.2-.84.44 1.1.16 1.92.08 2.12.51.57.82 1.31.82 2.21 0 3.15-1.87 3.84-3.65 4.05.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.47.55.39A8.05 8.05 0 0 0 16 8.15C16 3.65 12.42 0 8 0Z"/>
+                        </svg>
+                        <span style="font-weight:700;">Continue with GitHub</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- OTP Card -->
+        <div id="otpCard" class="card">
+            <div class="card-header">
+                <div class="brand">
+                    <div class="brand-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div>
+                        <h1>SecureAuth</h1>
+                        <p>Secure email OTP verification</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="message" class="message"></div>
+                
+                <h2>Enter verification code</h2>
+                <p id="otpEmailLabel">We've sent a 6-digit code to your email</p>
+                
+                <div class="otp-row">
+                    <input type="text" maxlength="1" class="otp-input" autocomplete="off" inputmode="numeric" aria-label="OTP digit 1">
+                    <input type="text" maxlength="1" class="otp-input" autocomplete="off" inputmode="numeric" aria-label="OTP digit 2">
+                    <input type="text" maxlength="1" class="otp-input" autocomplete="off" inputmode="numeric" aria-label="OTP digit 3">
+                    <input type="text" maxlength="1" class="otp-input" autocomplete="off" inputmode="numeric" aria-label="OTP digit 4">
+                    <input type="text" maxlength="1" class="otp-input" autocomplete="off" inputmode="numeric" aria-label="OTP digit 5">
+                    <input type="text" maxlength="1" class="otp-input" autocomplete="off" inputmode="numeric" aria-label="OTP digit 6">
+                </div>
+                
+                <div style="color:var(--muted); margin-bottom:16px; text-align: center;">
+                    Code expires in <span id="timer" class="timer">02:00</span>
+                </div>
+                
+                <button class="btn" id="verifyBtn">
+                    <i class="fas fa-check-circle"></i>
+                    Verify & Continue
+                </button>
+                
+                <button class="btn ghost" id="resendBtn">
+                    <i class="fas fa-redo"></i>
+                    Resend Code
+                </button>
+                
+                <div class="switch-view">
+                    <a data-card="registerCard">Back to sign up</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Success Card -->
+        <div id="successCard" class="success-card">
+            <div class="success-icon pulse">
+                <i class="fas fa-check"></i>
+            </div>
+            <h2>Authentication Successful!</h2>
+            <p>You have successfully verified your account. Welcome to SecureAuth!</p>
+            <div class="user-info">
+                <div class="user-info-item">
+                    <span class="user-info-label">Email:</span>
+                    <span class="user-info-value" id="successEmail">user@example.com</span>
+                </div>
+                <div class="user-info-item">
+                    <span class="user-info-label">Status:</span>
+                    <span class="user-info-value">Verified</span>
+                </div>
+                <div class="user-info-item">
+                    <span class="user-info-label">Login Time:</span>
+                    <span class="user-info-value" id="loginTime"></span>
                 </div>
             </div>
         </div>
@@ -324,7 +808,10 @@
 
         // Wire up tab buttons and action buttons to their respective handlers.
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => setView(btn.dataset.view));
+            btn.addEventListener('click', () => setCard(btn.dataset.card));
+        });
+        document.querySelectorAll('.switch-view a').forEach(link => {
+            link.addEventListener('click', () => setCard(link.dataset.card));
         });
         document.getElementById('registerBtn').addEventListener('click', register);
         document.getElementById('loginBtn').addEventListener('click', login);
@@ -333,31 +820,26 @@
         document.querySelectorAll('.oauth-btn').forEach(btn => {
             btn.addEventListener('click', () => startOAuth(btn.dataset.provider));
         });
-        document.querySelectorAll('[data-view]').forEach(btn => {
-            if (btn.classList.contains('tab-btn')) return;
-            btn.addEventListener('click', () => setView(btn.dataset.view));
-        });
         setupOtpInputs();
         setupPasswordToggles();
         handleOAuthReturn();
 
-        // Toggle between register/login/OTP panels and reset transient messages.
-        function setView(viewId) {
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.view === viewId);
+        // Switch between cards with animation
+        function setCard(cardId) {
+            document.querySelectorAll('.card').forEach(card => {
+                card.classList.remove('active');
             });
-            document.getElementById('registerView').style.display = viewId === 'registerView' ? 'flex' : 'none';
-            document.getElementById('loginView').style.display = viewId === 'loginView' ? 'flex' : 'none';
-            document.getElementById('otpView').style.display = viewId === 'otpView' ? 'flex' : 'none';
+            document.getElementById(cardId).classList.add('active');
             clearMessage();
         }
 
         // Render a dismissible status banner. Used by all API calls and validations.
         function showMessage(text, type = 'info') {
             const box = document.getElementById('message');
-            box.textContent = text;
+            box.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i> ${text}`;
             box.className = `message ${type} show`;
         }
+        
         // Clear the message banner text and styling.
         function clearMessage() {
             const box = document.getElementById('message');
@@ -369,11 +851,13 @@
         function getOtpCode() {
             return otpInputs.map(i => i.value).join('');
         }
+        
         // Empty all OTP inputs and focus the first box after a resend.
         function resetOtpInputs() {
             otpInputs.forEach(i => i.value = '');
             otpInputs[0].focus();
         }
+        
         // Attach input/keyboard handlers so OTP digits auto-advance and backspace works.
         function setupOtpInputs() {
             otpInputs.forEach((input, idx) => {
@@ -399,6 +883,7 @@
                 });
             });
         }
+        
         // Allow users to toggle password visibility in both forms.
         function setupPasswordToggles() {
             document.querySelectorAll('.toggle-btn').forEach(btn => {
@@ -407,7 +892,7 @@
                     if (!target) return;
                     const isPassword = target.getAttribute('type') === 'password';
                     target.setAttribute('type', isPassword ? 'text' : 'password');
-                    btn.textContent = isPassword ? 'Hide' : 'Show';
+                    btn.innerHTML = isPassword ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
                 });
             });
         }
@@ -426,21 +911,35 @@
                 }
             }, 1000);
         }
+        
         // Update the timer label on screen; used by the interval and reset.
         function updateTimerDisplay() {
             const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
             const seconds = (timeLeft % 60).toString().padStart(2, '0');
             document.getElementById('timer').textContent = `${minutes}:${seconds}`;
+            
+            // Change color when time is running out
+            if (timeLeft < 30) {
+                document.getElementById('timer').style.color = 'var(--warning)';
+            } else if (timeLeft < 60) {
+                document.getElementById('timer').style.color = 'var(--accent)';
+            } else {
+                document.getElementById('timer').style.color = 'var(--success)';
+            }
         }
 
-        // Show a simple timeline of the last action and token (if logged in).
-        function renderSummary({ title, email, status, token }) {
-            const box = document.getElementById('summary');
-            let html = `<div><strong>${title}</strong></div>`;
-            if (email) html += `<div>Email: ${email}</div>`;
-            if (status) html += `<div>Status: ${status}</div>`;
-            if (token) html += `<code>${token}</code>`;
-            box.innerHTML = html;
+        // Show success card with animation
+        function showSuccessCard(email) {
+            document.getElementById('successEmail').textContent = email;
+            document.getElementById('loginTime').textContent = new Date().toLocaleString();
+            
+            // Hide all cards
+            document.querySelectorAll('.card').forEach(card => {
+                card.style.display = 'none';
+            });
+            
+            // Show success card
+            document.getElementById('successCard').classList.add('active');
         }
 
         // Kick off OAuth by asking backend for provider URL/state, then redirecting the browser.
@@ -492,7 +991,7 @@
                 const data = await response.json();
                 if (response.ok) {
                     showMessage('Logged in with social account', 'success');
-                    renderSummary({ title: 'OAuth login', email: 'provided by provider', status: provider, token: data.access_token });
+                    showSuccessCard('provided by ' + provider);
                 } else {
                     showMessage(data.detail || 'OAuth login failed', 'error');
                 }
@@ -524,12 +1023,11 @@
                 const data = await response.json();
                 if (response.ok) {
                     currentEmail = email;
-                    document.getElementById('otpEmailLabel').textContent = `Code sent to ${email}`;
-                    setView('otpView');
+                    document.getElementById('otpEmailLabel').textContent = `We've sent a 6-digit code to ${email}`;
+                    setCard('otpCard');
                     startOTPTimer();
                     resetOtpInputs();
                     showMessage(data.message || 'OTP sent. Check your email.', 'success');
-                    renderSummary({ title: 'Registered', email, status: 'OTP pending' });
                 } else {
                     showMessage(data.detail || 'Registration failed', 'error');
                 }
@@ -555,19 +1053,21 @@
                 const data = await response.json();
                 if (response.ok) {
                     showMessage('Login successful', 'success');
-                    renderSummary({ title: 'Logged in', email, status: 'Verified', token: data.access_token });
+                    showSuccessCard(email);
                 } else {
                     const detail = (data.detail || 'Login failed').toLowerCase();
                     if (detail.includes('email not verified')) {
                         currentEmail = email;
-                        setView('otpView');
+                        document.getElementById('otpEmailLabel').textContent = `We've sent a 6-digit code to ${email}`;
+                        setCard('otpCard');
                         startOTPTimer();
                         resetOtpInputs();
                         showMessage('Email not verified. Sending a new code...', 'info');
                         await resendOtpForEmail(email, true);
                     } else if (detail.includes('verification code') || detail.includes('otp') || detail.includes('session expired')) {
                         currentEmail = email;
-                        setView('otpView');
+                        document.getElementById('otpEmailLabel').textContent = `We've sent a 6-digit code to ${email}`;
+                        setCard('otpCard');
                         startOTPTimer();
                         resetOtpInputs();
                         showMessage(data.detail || 'Verification required. Check your email.', 'info');
@@ -597,8 +1097,7 @@
                 const data = await response.json();
                 if (response.ok) {
                     showMessage(data.message || 'Account verified', 'success');
-                    renderSummary({ title: 'Verified', email: currentEmail, status: 'Verified' });
-                    setView('loginView');
+                    showSuccessCard(currentEmail);
                 } else {
                     showMessage(data.detail || 'Invalid or expired code', 'error');
                 }
@@ -643,9 +1142,8 @@
             document.querySelectorAll('input').forEach(inp => inp.value = '');
         }
 
-        // Initialize the page by clearing autofill, selecting the register tab, and re-clearing shortly after load.
+        // Initialize the page by clearing autofill, selecting the register card, and re-clearing shortly after load.
         clearAllInputs();
-        setView('registerView');
         // double-clear shortly after load to beat browser autofill
         setTimeout(clearAllInputs, 100);
     </script>
