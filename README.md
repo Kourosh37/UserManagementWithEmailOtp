@@ -27,6 +27,22 @@ Launcher flow:
 5) Runs optional SMTP test email.
 6) Starts API on `0.0.0.0:8000`.
 
+## Docker / Compose
+1) Copy env and fill secrets (DB/Redis URLs are overridden to in-network hosts by compose):
+```bash
+cp .env.example .env
+# set SECRET_KEY/SMTP_*/ADMIN_* and any OAuth keys
+```
+2) Build and start everything (API + Postgres + Redis):
+```bash
+docker compose up --build
+```
+3) API available on http://127.0.0.1:8000 (Swagger at `/docs`).
+4) Stop stack:
+```bash
+docker compose down
+```
+
 ## Manual setup
 1) Create venv and install deps
 ```bash
