@@ -14,6 +14,7 @@ ROOT = Path(__file__).parent.resolve()
 ENV_FILE = ROOT / ".env"
 ENV_EXAMPLE = ROOT / ".env.example"
 VENV_DIR = ROOT / ".venv"
+MIGRATIONS_DIR = ROOT / "app" / "db" / "migrations"
 
 
 def prompt_yes_no(question: str, default: bool = True) -> bool:
@@ -30,9 +31,10 @@ def prompt_yes_no(question: str, default: bool = True) -> bool:
         print("Please respond with 'y' or 'n'.")
 
 
-def run(cmd, check=True, capture_output=False):
-    """Wrapper around subprocess.run that echoes the command for transparency."""
-    print(f"> {' '.join(cmd)}")
+def run(cmd, check=True, capture_output=False, echo=True):
+    """Wrapper around subprocess.run; echo can be disabled for noisier commands."""
+    if echo:
+        print(f"> {' '.join(cmd)}")
     return subprocess.run(cmd, check=check, capture_output=capture_output, text=True)
 
 
@@ -526,43 +528,78 @@ def start_api(python_path: str):
         )
 
 
-def apply_simple_migrations(python_path: str, db_url: str | None):
-    """Apply idempotent schema changes if the database is reachable.
-
-    This keeps the user table aligned with current code (e.g., social login columns)
-    without needing a full migration tool in this starter project.
-    """
+def run_migrations(python_path: str, db_url: str | None):
+    """Apply SQL migrations stored under app/db/migrations if any are pending."""
 
     if not db_url:
         print("Skipping migrations: DATABASE_URL not set.")
+        return
+    if not MIGRATIONS_DIR.exists():
+        print("Skipping migrations: no migrations directory found.")
         return
 
     migration_script = f"""
 import asyncio
 import asyncpg
+from pathlib import Path
 
 DB_URL = {db_url!r}
-SQL = [
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(50) NOT NULL DEFAULT 'local';",
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_id VARCHAR(255);",
-    "ALTER TABLE users ALTER COLUMN hashed_password DROP NOT NULL;"
-    ,
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_otp_verified_at TIMESTAMPTZ;"
-]
+MIGRATIONS_DIR = Path({str(MIGRATIONS_DIR)!r})
+
+def split_statements(sql: str):
+    parts = []
+    current = []
+    for line in sql.splitlines():
+        current.append(line)
+        if ";" in line:
+            joined = "\\n".join(current)
+            segments = joined.split(";")
+            # keep last segment (may be partial) for next loop
+            for seg in segments[:-1]:
+                if seg.strip():
+                    parts.append(seg.strip())
+            current = [segments[-1]]
+    # append any trailing statement without semicolon
+    tail = "\\n".join(current).strip()
+    if tail:
+        parts.append(tail)
+    return parts
 
 async def main():
+    if not MIGRATIONS_DIR.exists():
+        return
     conn = await asyncpg.connect(DB_URL)
     try:
-        for stmt in SQL:
-            await conn.execute(stmt)
-        print("Migrations applied.")
+        await conn.execute(
+            "CREATE TABLE IF NOT EXISTS schema_migrations ("
+            "name TEXT PRIMARY KEY,"
+            "applied_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+            ");"
+        )
+        applied_rows = await conn.fetch("SELECT name FROM schema_migrations")
+        applied = {{row["name"] for row in applied_rows}}
+        pending = []
+        for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
+            name = path.name
+            if name in applied:
+                continue
+            pending.append(path)
+
+        for path in pending:
+            name = path.name
+            sql = path.read_text(encoding="utf-8")
+            statements = split_statements(sql)
+            for stmt in statements:
+                await conn.execute(stmt)
+            await conn.execute("INSERT INTO schema_migrations (name) VALUES ($1)", name)
+            print(f"Applied migration: {{name}}")
     finally:
         await conn.close()
 
 asyncio.run(main())
 """
     try:
-        run([python_path, "-c", migration_script])
+        run([python_path, "-c", migration_script], echo=False)
     except FileNotFoundError:
         print("Migration step skipped: asyncpg not available. Install dependencies first.")
     except Exception as exc:
@@ -594,7 +631,7 @@ def main():
 
     ensure_postgres_container(pg_cfg, env)
     ensure_redis_container(redis_cfg, env)
-    apply_simple_migrations(str(venv_python()), env.get("DATABASE_URL"))
+    run_migrations(str(venv_python()), env.get("DATABASE_URL"))
     test_smtp(env)
 
     start_api(str(venv_python()))
