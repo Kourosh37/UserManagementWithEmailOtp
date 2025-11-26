@@ -565,6 +565,12 @@
                         resetOtpInputs();
                         showMessage('Email not verified. Sending a new code...', 'info');
                         await resendOtpForEmail(email, true);
+                    } else if (detail.includes('verification code') || detail.includes('otp') || detail.includes('session expired')) {
+                        currentEmail = email;
+                        setView('otpView');
+                        startOTPTimer();
+                        resetOtpInputs();
+                        showMessage(data.detail || 'Verification required. Check your email.', 'info');
                     } else {
                         showMessage(data.detail || 'Login failed', 'error');
                     }

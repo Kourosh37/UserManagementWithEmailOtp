@@ -546,6 +546,8 @@ SQL = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(50) NOT NULL DEFAULT 'local';",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_id VARCHAR(255);",
     "ALTER TABLE users ALTER COLUMN hashed_password DROP NOT NULL;"
+    ,
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_otp_verified_at TIMESTAMPTZ;"
 ]
 
 async def main():

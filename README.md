@@ -86,6 +86,7 @@ Swagger: http://127.0.0.1:8000/docs
 - `POST /auth/login` - `{email, password}`; requires verified user; returns `{access_token, token_type}`
 - `GET /auth/oauth/{provider}/start` - returns `auth_url` + `state` for Google/GitHub
 - `POST /auth/oauth/{provider}/callback` - `{code, state, redirect_uri?}`; returns `{access_token, token_type, provider}`
+- OTP re-check: after `ACCESS_TOKEN_EXPIRE_MINUTES`, a fresh OTP is emailed on next login attempt; verification is required again before issuing a new token
 
 ### OAuth notes
 - Providers: `google`, `github`

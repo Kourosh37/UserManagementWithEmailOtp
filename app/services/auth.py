@@ -1,6 +1,6 @@
 """Authentication domain logic orchestrating users, OTP, and JWT issuance."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -82,6 +82,7 @@ class AuthService:
 
         user.is_verified = True
         user.is_active = True
+        user.last_otp_verified_at = datetime.utcnow()
         await self.session.commit()
         await self.session.refresh(user)
         return user
@@ -128,6 +129,23 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email not verified. Please complete the OTP flow.",
+            )
+
+        # Enforce OTP re-validation after the token expiry window.
+        window = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        now = datetime.utcnow()
+        if not user.last_otp_verified_at or (now - user.last_otp_verified_at) > window:
+            otp_code = await self.otp_service.issue_otp(user.email)
+            sent, err = await send_otp_email(user.email, otp_code)
+            if not sent:
+                await self.otp_service.invalidate(user.email)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to send verification code. Please check SMTP settings. ({err})",
+                )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Session expired. A new verification code has been sent.",
             )
 
         expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
