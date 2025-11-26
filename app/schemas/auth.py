@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr
+from typing import Literal
 
 
 class UserBase(BaseModel):
@@ -39,3 +40,25 @@ class Token(BaseModel):
 
     access_token: str
     token_type: str = "bearer"
+
+
+class OAuthStartResponse(BaseModel):
+    """Authorization URL and state for initiating an OAuth login/registration."""
+
+    provider: Literal["google", "github"]
+    auth_url: str
+    state: str
+
+
+class OAuthCallbackRequest(BaseModel):
+    """Payload sent from the frontend after provider redirects with a code."""
+
+    code: str
+    state: str
+    redirect_uri: str | None = None
+
+
+class OAuthToken(Token):
+    """Bearer token augmented with the provider used to issue it."""
+
+    provider: Literal["google", "github"]

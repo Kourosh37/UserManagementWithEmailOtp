@@ -218,6 +218,24 @@
                         <button class="btn" id="registerBtn">Register & get OTP</button>
                         <button class="btn ghost" data-view="loginView">Have an account?</button>
                     </div>
+                    <div style="height:1px; background:var(--line); margin:12px 0;"></div>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="btn ghost oauth-btn" data-provider="google" style="justify-content:flex-start; display:flex; gap:10px; align-items:center;">
+                            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 533 544" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path fill="#EA4335" d="M533 278c0-18-2-36-6-53H272v100h147c-6 35-26 64-55 84v69h89c52-48 80-119 80-200Z"/>
+                                <path fill="#34A853" d="M272 544c73 0 134-24 178-66l-89-69c-24 16-54 26-89 26-68 0-126-46-147-108H33v68c44 88 136 149 239 149Z"/>
+                                <path fill="#4285F4" d="M125 327c-10-30-10-63 0-93v-69H33C-11 220-11 324 33 404l92-77Z"/>
+                                <path fill="#FBBC05" d="M272 107c39-1 76 14 104 39l78-78C407 24 347-1 272 0 169 0 77 61 33 165l92 69c21-62 79-108 147-108Z"/>
+                            </svg>
+                            <span style="font-weight:700;">Continue with Google</span>
+                        </button>
+                        <button class="btn ghost oauth-btn" data-provider="github" style="justify-content:flex-start; display:flex; gap:10px; align-items:center;">
+                            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.65 0 8.15c0 3.6 2.29 6.65 5.47 7.73.4.08.55-.18.55-.39 0-.19-.01-.82-.01-1.48-2.01.45-2.53-.5-2.69-.96-.09-.23-.48-.96-.82-1.15-.28-.15-.68-.52-.01-.53.63-.01 1.08.59 1.23.84.72 1.23 1.87.88 2.33.67.07-.53.28-.88.51-1.08-1.78-.21-3.64-.91-3.64-4.05 0-.9.31-1.64.82-2.21-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.84a7.28 7.28 0 0 1 4 0c1.53-1.07 2.2-.84 2.2-.84.44 1.1.16 1.92.08 2.12.51.57.82 1.31.82 2.21 0 3.15-1.87 3.84-3.65 4.05.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.47.55.39A8.05 8.05 0 0 0 16 8.15C16 3.65 12.42 0 8 0Z"/>
+                            </svg>
+                            <span style="font-weight:700;">Continue with GitHub</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div id="loginView" class="panel">
@@ -239,6 +257,24 @@
                     <div style="display:flex; gap:10px; flex-wrap:wrap;">
                         <button class="btn" id="loginBtn">Login</button>
                         <button class="btn ghost" data-view="registerView">Need an account?</button>
+                    </div>
+                    <div style="height:1px; background:var(--line); margin:12px 0;"></div>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="btn ghost oauth-btn" data-provider="google" style="justify-content:flex-start; display:flex; gap:10px; align-items:center;">
+                            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 533 544" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path fill="#EA4335" d="M533 278c0-18-2-36-6-53H272v100h147c-6 35-26 64-55 84v69h89c52-48 80-119 80-200Z"/>
+                                <path fill="#34A853" d="M272 544c73 0 134-24 178-66l-89-69c-24 16-54 26-89 26-68 0-126-46-147-108H33v68c44 88 136 149 239 149Z"/>
+                                <path fill="#4285F4" d="M125 327c-10-30-10-63 0-93v-69H33C-11 220-11 324 33 404l92-77Z"/>
+                                <path fill="#FBBC05" d="M272 107c39-1 76 14 104 39l78-78C407 24 347-1 272 0 169 0 77 61 33 165l92 69c21-62 79-108 147-108Z"/>
+                            </svg>
+                            <span style="font-weight:700;">Continue with Google</span>
+                        </button>
+                        <button class="btn ghost oauth-btn" data-provider="github" style="justify-content:flex-start; display:flex; gap:10px; align-items:center;">
+                            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.65 0 8.15c0 3.6 2.29 6.65 5.47 7.73.4.08.55-.18.55-.39 0-.19-.01-.82-.01-1.48-2.01.45-2.53-.5-2.69-.96-.09-.23-.48-.96-.82-1.15-.28-.15-.68-.52-.01-.53.63-.01 1.08.59 1.23.84.72 1.23 1.87.88 2.33.67.07-.53.28-.88.51-1.08-1.78-.21-3.64-.91-3.64-4.05 0-.9.31-1.64.82-2.21-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.84a7.28 7.28 0 0 1 4 0c1.53-1.07 2.2-.84 2.2-.84.44 1.1.16 1.92.08 2.12.51.57.82 1.31.82 2.21 0 3.15-1.87 3.84-3.65 4.05.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.47.55.39A8.05 8.05 0 0 0 16 8.15C16 3.65 12.42 0 8 0Z"/>
+                            </svg>
+                            <span style="font-weight:700;">Continue with GitHub</span>
+                        </button>
                     </div>
                 </div>
 
@@ -272,7 +308,7 @@
     </div>
 
     <script>
-        // Client-side helpers for the OTP flow. The functions below orchestrate UI state
+        // Client-side helpers for the OTP + OAuth flows. The functions below orchestrate UI state
         // and talk to the FastAPI backend exposed at API_BASE.
         const API_BASE = 'http://127.0.0.1:8000';
         // Tracks which email address is awaiting OTP verification.
@@ -282,6 +318,9 @@
         let timeLeft = 120;
         // Node list of the 6 OTP input boxes used by several helpers below.
         const otpInputs = Array.from(document.querySelectorAll('.otp-input'));
+        // Cache keys used for restoring provider/state after OAuth redirect.
+        const OAUTH_PROVIDER_KEY = 'oauth_provider';
+        const OAUTH_STATE_KEY = 'oauth_state';
 
         // Wire up tab buttons and action buttons to their respective handlers.
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -291,12 +330,16 @@
         document.getElementById('loginBtn').addEventListener('click', login);
         document.getElementById('verifyBtn').addEventListener('click', verifyOTP);
         document.getElementById('resendBtn').addEventListener('click', resendOTP);
+        document.querySelectorAll('.oauth-btn').forEach(btn => {
+            btn.addEventListener('click', () => startOAuth(btn.dataset.provider));
+        });
         document.querySelectorAll('[data-view]').forEach(btn => {
             if (btn.classList.contains('tab-btn')) return;
             btn.addEventListener('click', () => setView(btn.dataset.view));
         });
         setupOtpInputs();
         setupPasswordToggles();
+        handleOAuthReturn();
 
         // Toggle between register/login/OTP panels and reset transient messages.
         function setView(viewId) {
@@ -398,6 +441,70 @@
             if (status) html += `<div>Status: ${status}</div>`;
             if (token) html += `<code>${token}</code>`;
             box.innerHTML = html;
+        }
+
+        // Kick off OAuth by asking backend for provider URL/state, then redirecting the browser.
+        async function startOAuth(provider) {
+            try {
+                const redirectUri = window.location.origin + window.location.pathname;
+                const response = await fetch(`${API_BASE}/auth/oauth/${provider}/start?redirect_uri=${encodeURIComponent(redirectUri)}`);
+                const data = await response.json();
+                if (!response.ok) {
+                    return showMessage(data.detail || 'Could not start OAuth flow', 'error');
+                }
+                localStorage.setItem(OAUTH_PROVIDER_KEY, provider);
+                localStorage.setItem(OAUTH_STATE_KEY, data.state);
+                window.location.href = data.auth_url;
+            } catch (err) {
+                showMessage('Failed to start OAuth', 'error');
+                console.error(err);
+            }
+        }
+
+        // After provider redirects back with code/state, exchange for an API token.
+        async function handleOAuthReturn() {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            const state = params.get('state');
+            if (!code || !state) return;
+
+            const provider = params.get('provider') || localStorage.getItem(OAUTH_PROVIDER_KEY);
+            const cachedState = localStorage.getItem(OAUTH_STATE_KEY);
+            if (!provider) {
+                showMessage('Missing provider for OAuth return', 'error');
+                return;
+            }
+            if (cachedState && cachedState !== state) {
+                showMessage('State mismatch; restarting OAuth', 'error');
+                localStorage.removeItem(OAUTH_PROVIDER_KEY);
+                localStorage.removeItem(OAUTH_STATE_KEY);
+                return;
+            }
+
+            try {
+                showMessage('Completing social login...', 'info');
+                const redirectUri = window.location.origin + window.location.pathname;
+                const response = await fetch(`${API_BASE}/auth/oauth/${provider}/callback`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, state, redirect_uri: redirectUri })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    showMessage('Logged in with social account', 'success');
+                    renderSummary({ title: 'OAuth login', email: 'provided by provider', status: provider, token: data.access_token });
+                } else {
+                    showMessage(data.detail || 'OAuth login failed', 'error');
+                }
+            } catch (err) {
+                showMessage('OAuth login failed', 'error');
+                console.error(err);
+            } finally {
+                localStorage.removeItem(OAUTH_PROVIDER_KEY);
+                localStorage.removeItem(OAUTH_STATE_KEY);
+                // Strip query params from URL for cleanliness.
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
         }
 
         // Call the backend registration endpoint, store the email for OTP, and start the timer.

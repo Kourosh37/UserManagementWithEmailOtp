@@ -12,6 +12,7 @@ from app.db.models.user import User
 from app.schemas.auth import UserCreate, UserLogin
 from app.schemas.otp import OTPVerify
 from app.services.email import send_otp_email
+from app.services.oauth import OAuthProfile
 from app.services.otp import OTPService
 
 
@@ -46,6 +47,7 @@ class AuthService:
         user = User(
             email=payload.email,
             hashed_password=get_password_hash(payload.password),
+            auth_provider="local",
             is_active=False,
             is_verified=False,
         )
@@ -104,7 +106,19 @@ class AuthService:
         """Authenticate a verified user and mint a short-lived JWT access token."""
 
         user = await self._get_user_by_email(payload.email)
-        if not user or not verify_password(payload.password, user.hashed_password):
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password.",
+            )
+
+        if user.auth_provider != "local":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This account uses social login. Sign in with Google or GitHub.",
+            )
+
+        if not user.hashed_password or not verify_password(payload.password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password.",
@@ -115,6 +129,50 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email not verified. Please complete the OTP flow.",
             )
+
+        expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        return create_access_token(subject=user.email, expires_delta=expires_delta)
+
+    async def login_with_oauth(self, profile: OAuthProfile) -> str:
+        """Create or update a user based on OAuth provider profile and return JWT."""
+
+        if not profile.email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email address not provided by OAuth provider. Cannot proceed.",
+            )
+
+        user = await self._get_user_by_email(profile.email)
+
+        if user:
+            if user.auth_provider != profile.provider:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Account exists with a different sign-in method. Use your original provider.",
+                )
+            if user.provider_id and user.provider_id != profile.provider_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="OAuth provider id mismatch for this account.",
+                )
+
+            user.provider_id = user.provider_id or profile.provider_id
+            user.is_verified = True
+            user.is_active = True
+            await self.session.commit()
+            await self.session.refresh(user)
+        else:
+            user = User(
+                email=profile.email,
+                hashed_password=None,
+                auth_provider=profile.provider,
+                provider_id=profile.provider_id,
+                is_active=True,
+                is_verified=True,
+            )
+            self.session.add(user)
+            await self.session.commit()
+            await self.session.refresh(user)
 
         expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         return create_access_token(subject=user.email, expires_delta=expires_delta)

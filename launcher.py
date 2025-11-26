@@ -526,6 +526,47 @@ def start_api(python_path: str):
         )
 
 
+def apply_simple_migrations(python_path: str, db_url: str | None):
+    """Apply idempotent schema changes if the database is reachable.
+
+    This keeps the user table aligned with current code (e.g., social login columns)
+    without needing a full migration tool in this starter project.
+    """
+
+    if not db_url:
+        print("Skipping migrations: DATABASE_URL not set.")
+        return
+
+    migration_script = f"""
+import asyncio
+import asyncpg
+
+DB_URL = {db_url!r}
+SQL = [
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(50) NOT NULL DEFAULT 'local';",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_id VARCHAR(255);",
+    "ALTER TABLE users ALTER COLUMN hashed_password DROP NOT NULL;"
+]
+
+async def main():
+    conn = await asyncpg.connect(DB_URL)
+    try:
+        for stmt in SQL:
+            await conn.execute(stmt)
+        print("Migrations applied.")
+    finally:
+        await conn.close()
+
+asyncio.run(main())
+"""
+    try:
+        run([python_path, "-c", migration_script])
+    except FileNotFoundError:
+        print("Migration step skipped: asyncpg not available. Install dependencies first.")
+    except Exception as exc:
+        print(f"Migration step failed: {exc}")
+
+
 def main():
     """Primary orchestrator for the launcher workflow."""
     uv_cmd = ensure_uv()
@@ -551,6 +592,7 @@ def main():
 
     ensure_postgres_container(pg_cfg, env)
     ensure_redis_container(redis_cfg, env)
+    apply_simple_migrations(str(venv_python()), env.get("DATABASE_URL"))
     test_smtp(env)
 
     start_api(str(venv_python()))

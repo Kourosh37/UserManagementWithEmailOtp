@@ -36,6 +36,18 @@ class Settings(BaseSettings):
         "http://localhost:5500",
     ]
 
+    # OAuth2 client credentials for social login flows
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = None
+    GOOGLE_REDIRECT_URI: str | None = None
+
+    GITHUB_CLIENT_ID: str | None = None
+    GITHUB_CLIENT_SECRET: str | None = None
+    GITHUB_REDIRECT_URI: str | None = None
+
+    # TTL (seconds) for validating OAuth state tokens issued by this backend
+    OAUTH_STATE_TTL_SECONDS: int = 600
+
 
 @lru_cache
 def get_settings() -> Settings:

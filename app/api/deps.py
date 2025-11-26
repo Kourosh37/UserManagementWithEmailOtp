@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.services.auth import AuthService
+from app.services.oauth import OAuthService
 from app.services.otp import OTPService, get_redis_client
 
 
@@ -40,3 +41,9 @@ async def get_auth_service(
 
     otp_service = OTPService(redis)
     yield AuthService(session=session, otp_service=otp_service)
+
+
+def get_oauth_service() -> OAuthService:
+    """Provide a new OAuthService instance for handling provider flows."""
+
+    return OAuthService()

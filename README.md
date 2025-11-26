@@ -84,6 +84,21 @@ Swagger: http://127.0.0.1:8000/docs
 - `POST /auth/verify-otp` - `{email, code}`; marks user verified/active
 - `POST /auth/resend-otp` - `{email}`; sends new OTP
 - `POST /auth/login` - `{email, password}`; requires verified user; returns `{access_token, token_type}`
+- `GET /auth/oauth/{provider}/start` - returns `auth_url` + `state` for Google/GitHub
+- `POST /auth/oauth/{provider}/callback` - `{code, state, redirect_uri?}`; returns `{access_token, token_type, provider}`
+
+### OAuth notes
+- Providers: `google`, `github`
+- Required env keys: `GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI`, `GITHUB_CLIENT_ID/SECRET/REDIRECT_URI`
+- The backend signs `state` with `SECRET_KEY` (TTL: `OAUTH_STATE_TTL_SECONDS`, default 600s)
+- Suggested redirect URI for local static frontend: `http://127.0.0.1:5500/index.html`
+- Flow: frontend calls `/auth/oauth/{provider}/start` to get `auth_url`, browser redirects to provider, provider returns `code/state` to the redirect URI, frontend POSTs to `/auth/oauth/{provider}/callback`
+
+### How to fill new .env OAuth variables
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: create a Google Cloud OAuth 2.0 Client ID (application type: Web), add Authorized redirect URI `http://127.0.0.1:5500/index.html`, copy the client ID/secret.
+- `GOOGLE_REDIRECT_URI`: match the redirect above (e.g., `http://127.0.0.1:5500/index.html`).
+- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: GitHub Settings → Developer settings → OAuth Apps → New OAuth App. Homepage: your frontend origin (e.g., `http://127.0.0.1:5500`). Authorization callback URL: `http://127.0.0.1:5500/index.html`. Copy the generated ID/secret.
+- `GITHUB_REDIRECT_URI`: same as the GitHub callback URL (`http://127.0.0.1:5500/index.html`).
 
 ## Frontend
 - Serve: `python -m http.server 5500` then open http://127.0.0.1:5500/index.html
