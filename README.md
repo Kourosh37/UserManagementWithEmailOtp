@@ -1,93 +1,101 @@
-# User Management with Email OTP
+# OTP Auth Service
 
-FastAPI service for registering and logging in users with a 6-digit email OTP. A simple HTML page (`index.html`) is included to drive the flow.
+FastAPI (async) service for user registration and login with 6-digit email OTP. OTPs live in Redis with TTL; users live in PostgreSQL. Frontend: `index.html`.
 
-## Prerequisites
-- Python 3.10+ with `pip`
-- PostgreSQL running locally or reachable over the network
-- SMTP credentials (Gmail, Outlook, Mailtrap, etc.)
-- Terminal access to the project root (`{root}\UserManagementWithEmailOtp`)
+## Features
+- Async FastAPI + SQLAlchemy (asyncpg)
+- Redis-backed OTP (auto-expire, single-use)
+- SMTP email delivery (no dev shortcuts)
+- Clean layering (api/routes, services, db, core)
+- One-shot launcher to install Python 3.12, deps, Docker containers, and start API
 
-## Setup
+## Requirements
+- Python 3.10+ (Python 3.12.x recommended; launcher installs it if missing)
+- uv (installer handled by launcher if missing)
+- Docker (for Postgres/Redis containers)
+- SMTP credentials
 
-### 1) Create and activate a virtual environment
-```powershell
-cd {root}\UserManagementWithEmailOtp
-python -m venv venv
-.\venv\Scripts\activate        # Windows
-# source venv/bin/activate    # macOS/Linux
-```
-
-### 2) Install dependencies
+## Quick start (launcher)
 ```bash
-pip install -r requirement.txt
+python launcher.py
 ```
+Launcher flow:
+1) Ensures uv; installs Python 3.12 if needed.
+2) Creates `.venv` with that Python (recreates if wrong version).
+3) Installs deps with `uv pip`.
+4) Starts Docker containers for Postgres/Redis (offers alt ports if busy).
+5) Runs optional SMTP test email.
+6) Starts API on `0.0.0.0:8000`.
 
-### 3) Create and fill `.env`
-Copy the template and edit it:
-```powershell
-copy .env.example .env        # Windows
-# cp .env.example .env        # macOS/Linux
+## Manual setup
+1) Create venv and install deps
+```bash
+uv venv
+uv pip install -r requirements.txt
 ```
-
-Recommended values (edit to your environment):
+2) Environment
+```bash
+cp .env.example .env
 ```
-DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/user_management
-SECRET_KEY=replace-with-a-strong-random-string
+Fill:
+```
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/user_management
+REDIS_URL=redis://localhost:6379/0
+SECRET_KEY=replace-with-strong-random
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+OTP_EXPIRE_SECONDS=120
+OTP_LENGTH=6
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USERNAME=your@email.com
-SMTP_PASSWORD=your_app_password_or_smtp_password
-FROM_EMAIL=your@email.com
-ENVIRONMENT=development
+SMTP_USERNAME=you@example.com
+SMTP_PASSWORD=app_password
+FROM_EMAIL=you@example.com
 ```
-- `SECRET_KEY`: generate one with `python -c "import secrets; print(secrets.token_hex(32))"`.
-- `ENVIRONMENT=development` prints OTP codes to the API console instead of sending emails. Remove or change it when you want real emails.
-
-### 4) Prepare PostgreSQL
-1. Start PostgreSQL.
-2. Create a database (example):
-   ```bash
-   psql -U postgres -h localhost -c "CREATE DATABASE user_management;"
-   ```
-3. Update `DATABASE_URL` in `.env` to match your DB name, user, password, and host.
-
-Tables are created automatically on API startup (`models.Base.metadata.create_all`).
-
-### 5) Run the API server
-With the virtual environment active and from the project root:
+3) Run containers (if not using external services)
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-- Swagger UI: `http://127.0.0.1:8000/docs`
-- OTP codes are logged here when `ENVIRONMENT=development`.
+docker run -d --name usermgmt-postgres \
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=user_management \
+  -p 5432:5432 -v usermgmt-postgres-data:/var/lib/postgresql/data \
+  postgres:16-alpine
 
-### 6) Serve the UI
-The API allows requests from `http://127.0.0.1:5500` and `http://localhost:5500`. From the project root, serve the static files:
+docker run -d --name usermgmt-redis \
+  -p 6379:6379 -v usermgmt-redis-data:/data \
+  redis:7-alpine
+```
+4) Start API
 ```bash
-python -m http.server 5500
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
-Open `http://127.0.0.1:5500/index.html` in your browser while the API is running.
+Swagger: http://127.0.0.1:8000/docs
 
-### 7) Use the UI
-- Register with an email and password; an OTP is emailed or printed in the API console.
-- Enter the 6-digit OTP to verify the account.
-- Log in with the same email/password to get an access token shown on the dashboard.
-- If the code expires (default 10 minutes), click "Resend Code" to get a new one.
+## Project structure
+- `app/main.py` — FastAPI app, router include, CORS, lifespan
+- `app/api/routes/auth.py` — register, verify-otp, resend-otp, login
+- `app/services/auth.py` — business logic; uses `OTPService` + email sender
+- `app/services/otp.py` — Redis OTP issue/validate/invalidate
+- `app/services/email.py` — SMTP email sending
+- `app/db/session.py` — async engine/session (asyncpg)
+- `app/db/models` — SQLAlchemy models (User)
+- `app/core/config.py` — settings via pydantic-settings
+- `index.html` — minimal frontend (register/login/OTP)
 
-## Common commands (project root)
-- Activate venv (Windows): `.\venv\Scripts\activate`
-- Activate venv (macOS/Linux): `source venv/bin/activate`
-- Install deps: `pip install -r requirement.txt`
-- Start API: `uvicorn app.main:app --reload`
-- Serve UI: `python -m http.server 5500`
+## API overview
+- `POST /auth/register` — body `{email, password}`; sends OTP; user inactive until verify
+- `POST /auth/verify-otp` — `{email, code}`; marks user verified/active
+- `POST /auth/resend-otp` — `{email}`; sends new OTP
+- `POST /auth/login` — `{email, password}`; requires verified user; returns `{access_token, token_type}`
 
-## SMTP tips
-- Gmail: `SMTP_SERVER=smtp.gmail.com`, `SMTP_PORT=587`, use an App Password if 2FA is on.
-- Mailtrap or other providers: use the host/port/user/password they provide.
-- `FROM_EMAIL` should be an address allowed by your SMTP provider.
+## Frontend
+- Serve: `python -m http.server 5500` then open http://127.0.0.1:5500/index.html
+- Uses `API_BASE = http://127.0.0.1:8000` (adjust if needed)
+- OTP inputs auto-advance; Enter on last digit submits; password fields have show/hide toggle
+
+## Tips
+- SMTP: Use correct `FROM_EMAIL`/`SMTP_USERNAME`, App Password for Gmail, check spam.
+- Ports busy? Launcher suggests alternatives and can update `.env`.
+- OTP expires after `OTP_EXPIRE_SECONDS`; resend to refresh.
 
 ## Troubleshooting
-- Database connection errors: confirm PostgreSQL is running and `DATABASE_URL` is correct.
-- OTP not delivered: verify SMTP credentials or use `ENVIRONMENT=development` to read the code in the console.
-- CORS issues: serve the UI on port 5500 as shown, or add your origin in `app/main.py` under `allow_origins`.
+- Email not delivered: check SMTP creds, spam folder, and API response `detail` if send fails.
+- 400 on register/login: read `detail` (duplicate email, invalid creds, unverified email).
+- Redis/Postgres errors: confirm containers up and URLs correct in `.env`.
