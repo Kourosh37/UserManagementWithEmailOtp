@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str | None = None
     FROM_EMAIL: str | None = None
 
+    # Static admin credentials for privileged user management endpoints
+    ADMIN_EMAIL: str | None = None
+    ADMIN_PASSWORD: str | None = None
+
     ALLOWED_ORIGINS: List[str] = [
         "http://127.0.0.1:5500",
         "http://localhost:5500",

@@ -31,6 +31,7 @@ class UserResponse(UserBase):
     is_active: bool
     is_verified: bool
     created_at: datetime
+    auth_provider: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -62,3 +63,21 @@ class OAuthToken(Token):
     """Bearer token augmented with the provider used to issue it."""
 
     provider: Literal["google", "github"]
+
+
+class AdminUserCreate(BaseModel):
+    """Payload for admin-driven user creation."""
+
+    email: EmailStr
+    password: str | None = None
+    is_active: bool = True
+    is_verified: bool = True
+
+
+class AdminUserUpdate(BaseModel):
+    """Payload for admin-driven user updates (all optional)."""
+
+    email: EmailStr | None = None
+    password: str | None = None
+    is_active: bool | None = None
+    is_verified: bool | None = None

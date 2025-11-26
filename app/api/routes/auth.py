@@ -3,7 +3,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api import deps
-from app.schemas.auth import OAuthCallbackRequest, OAuthStartResponse, OAuthToken, Token, UserCreate, UserLogin
+from app.schemas.auth import (
+    AdminUserCreate,
+    AdminUserUpdate,
+    OAuthCallbackRequest,
+    OAuthStartResponse,
+    OAuthToken,
+    Token,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+)
 from app.schemas.common import Message
 from app.schemas.otp import OTPRequest, OTPVerify
 from app.services.auth import AuthService
@@ -92,3 +102,53 @@ async def oauth_callback(
     )
     token = await auth_service.login_with_oauth(profile)
     return OAuthToken(access_token=token, token_type="bearer", provider=provider_key)
+
+
+# ----------------
+# Admin management
+# ----------------
+
+
+@router.get("/admin/users", response_model=list[UserResponse])
+async def admin_list_users(
+    auth_service: AuthService = Depends(deps.get_auth_service),
+    _: None = Depends(deps.admin_guard),
+):
+    """List all users (admin only)."""
+
+    return await auth_service.admin_list_users()
+
+
+@router.post("/admin/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def admin_create_user(
+    payload: AdminUserCreate,
+    auth_service: AuthService = Depends(deps.get_auth_service),
+    _: None = Depends(deps.admin_guard),
+):
+    """Create a new user (admin only)."""
+
+    return await auth_service.admin_create_user(payload)
+
+
+@router.put("/admin/users/{user_id}", response_model=UserResponse)
+async def admin_update_user(
+    user_id: int,
+    payload: AdminUserUpdate,
+    auth_service: AuthService = Depends(deps.get_auth_service),
+    _: None = Depends(deps.admin_guard),
+):
+    """Update user fields (admin only)."""
+
+    return await auth_service.admin_update_user(user_id, payload)
+
+
+@router.delete("/admin/users/{user_id}", response_model=Message)
+async def admin_delete_user(
+    user_id: int,
+    auth_service: AuthService = Depends(deps.get_auth_service),
+    _: None = Depends(deps.admin_guard),
+):
+    """Delete a user (admin only)."""
+
+    await auth_service.admin_delete_user(user_id)
+    return Message(message="User deleted.")

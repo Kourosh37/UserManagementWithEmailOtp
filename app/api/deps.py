@@ -6,7 +6,8 @@ through FastAPI's dependency injection system so route handlers remain thin.
 
 from typing import AsyncGenerator
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +15,9 @@ from app.db.session import get_session
 from app.services.auth import AuthService
 from app.services.oauth import OAuthService
 from app.services.otp import OTPService, get_redis_client
+from app.core.config import settings
+
+security = HTTPBasic()
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -47,3 +51,20 @@ def get_oauth_service() -> OAuthService:
     """Provide a new OAuthService instance for handling provider flows."""
 
     return OAuthService()
+
+
+def admin_guard(credentials: HTTPBasicCredentials = Depends(security)) -> None:
+    """Simple HTTP Basic guard using ADMIN_EMAIL/ADMIN_PASSWORD from settings."""
+
+    if not settings.ADMIN_EMAIL or not settings.ADMIN_PASSWORD:
+        raise HTTPException(status_code=503, detail="Admin credentials are not configured.")
+
+    if (
+        credentials.username != settings.ADMIN_EMAIL
+        or credentials.password != settings.ADMIN_PASSWORD
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Admin authentication failed.",
+            headers={"WWW-Authenticate": "Basic"},
+        )

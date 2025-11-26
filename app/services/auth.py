@@ -1,6 +1,6 @@
 """Authentication domain logic orchestrating users, OTP, and JWT issuance."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db.models.user import User
 from app.schemas.auth import UserCreate, UserLogin
+from app.schemas.auth import AdminUserCreate, AdminUserUpdate
 from app.schemas.otp import OTPVerify
 from app.services.email import send_otp_email
 from app.services.oauth import OAuthProfile
@@ -82,7 +83,7 @@ class AuthService:
 
         user.is_verified = True
         user.is_active = True
-        user.last_otp_verified_at = datetime.utcnow()
+        user.last_otp_verified_at = datetime.now(timezone.utc)
         await self.session.commit()
         await self.session.refresh(user)
         return user
@@ -133,7 +134,7 @@ class AuthService:
 
         # Enforce OTP re-validation after the token expiry window.
         window = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if not user.last_otp_verified_at or (now - user.last_otp_verified_at) > window:
             otp_code = await self.otp_service.issue_otp(user.email)
             sent, err = await send_otp_email(user.email, otp_code)
@@ -194,3 +195,72 @@ class AuthService:
 
         expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         return create_access_token(subject=user.email, expires_delta=expires_delta)
+
+    # ----------------
+    # Admin operations
+    # ----------------
+
+    async def admin_list_users(self) -> list[User]:
+        """Return all users ordered by creation time desc."""
+
+        result = await self.session.scalars(select(User).order_by(User.created_at.desc()))
+        return list(result)
+
+    async def admin_create_user(self, payload: AdminUserCreate) -> User:
+        """Admin-created user; password optional; marked active/verified per payload."""
+
+        existing = await self._get_user_by_email(payload.email)
+        if existing:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists.")
+
+        hashed_pw = get_password_hash(payload.password) if payload.password else None
+        user = User(
+            email=payload.email,
+            hashed_password=hashed_pw,
+            auth_provider="local",
+            provider_id=None,
+            is_active=payload.is_active,
+            is_verified=payload.is_verified,
+            last_otp_verified_at=datetime.now(timezone.utc) if payload.is_verified else None,
+        )
+        self.session.add(user)
+        await self.session.commit()
+        await self.session.refresh(user)
+        return user
+
+    async def admin_update_user(self, user_id: int, payload: AdminUserUpdate) -> User:
+        """Update mutable fields for a user."""
+
+        user = await self.session.get(User, user_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+        if payload.email and payload.email != user.email:
+            exists = await self._get_user_by_email(payload.email)
+            if exists:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists.")
+            user.email = payload.email
+
+        if payload.password:
+            user.hashed_password = get_password_hash(payload.password)
+
+        if payload.is_active is not None:
+            user.is_active = payload.is_active
+
+        if payload.is_verified is not None:
+            user.is_verified = payload.is_verified
+            if payload.is_verified:
+                user.last_otp_verified_at = datetime.now(timezone.utc)
+
+        await self.session.commit()
+        await self.session.refresh(user)
+        return user
+
+    async def admin_delete_user(self, user_id: int) -> None:
+        """Delete a user by id."""
+
+        user = await self.session.get(User, user_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        await self.session.delete(user)
+        await self.session.commit()

@@ -52,7 +52,7 @@ def create_application() -> FastAPI:
 
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
+        allow_origins=["*"],  # open for local/dev access via VPN/tun modes
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
