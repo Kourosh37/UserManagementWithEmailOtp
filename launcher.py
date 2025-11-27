@@ -7,6 +7,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
@@ -310,6 +311,59 @@ def install_docker():
         print("Docker install attempted. If this is the first install, ensure the daemon is running and restart your shell if needed.")
     else:
         print("Docker installation skipped. Containers will not be started.")
+
+def docker_daemon_running():
+    """Return True if the Docker daemon responds to info commands."""
+    result = try_capture(["docker", "info"])
+    return bool(result and result.returncode == 0)
+
+
+WINDOWS_DOCKER_DESKTOP_PATHS = [
+    Path(os.getenv("ProgramFiles", "C:\\Program Files")) / "Docker" / "Docker" / "Docker Desktop.exe",
+    Path(os.getenv("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Docker" / "Docker" / "Docker Desktop.exe",
+]
+
+
+def start_docker_daemon():
+    """Try to start a Docker daemon in a platform-specific way."""
+    system = platform.system()
+    if system == "Windows":
+        for candidate in WINDOWS_DOCKER_DESKTOP_PATHS:
+            if candidate.exists():
+                print(f"Launching Docker Desktop from {candidate}")
+                subprocess.Popen([str(candidate)])
+                return True
+        print("Docker Desktop executable not found.")
+        return False
+    if system == "Darwin":
+        print("Opening Docker Desktop via macOS Launch.")
+        run(["open", "-a", "Docker"], check=False)
+        return True
+    if shutil.which("systemctl"):
+        run(["systemctl", "start", "docker"], check=False)
+        return True
+    if shutil.which("service"):
+        run(["service", "docker", "start"], check=False)
+        return True
+    print("No known method to start Docker on this platform.")
+    return False
+
+
+def ensure_docker_running(timeout: int = 60, interval: int = 3):
+    """Ensure the Docker daemon responds within a short timeout."""
+    if docker_daemon_running():
+        return True
+    print("Docker daemon not responding. Attempting to start it...")
+    if not start_docker_daemon():
+        return False
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if docker_daemon_running():
+            print("Docker is running.")
+            return True
+        time.sleep(interval)
+    print("Timed out waiting for the Docker daemon to start.")
+    return False
 
 
 def container_exists(name):
@@ -623,14 +677,22 @@ def main():
             recreate_venv(uv_cmd, target_python)
     install_dependencies(uv_cmd, str(venv_python()))
 
-    if not docker_available():
+    docker_ready = False
+    if docker_available():
+        docker_ready = ensure_docker_running()
+    else:
         install_docker()
+        if docker_available():
+            docker_ready = ensure_docker_running()
 
     pg_cfg = parse_database_settings(env)
     redis_cfg = parse_redis_settings(env)
 
-    ensure_postgres_container(pg_cfg, env)
-    ensure_redis_container(redis_cfg, env)
+    if docker_ready:
+        ensure_postgres_container(pg_cfg, env)
+        ensure_redis_container(redis_cfg, env)
+    else:
+        print("Docker is unavailable or not running; skipping PostgreSQL/Redis containers.")
     run_migrations(str(venv_python()), env.get("DATABASE_URL"))
     test_smtp(env)
 
