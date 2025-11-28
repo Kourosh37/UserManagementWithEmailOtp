@@ -1,5 +1,6 @@
-"""One-shot launcher to set up Python, virtual env, containers, and the API."""
+"""One-shot launcher to manage Python, dependencies, containers, and the API via uv."""
 
+import argparse
 import json
 import os
 import platform
@@ -8,18 +9,32 @@ import socket
 import subprocess
 import sys
 import time
+from argparse import ArgumentParser
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse, urlunparse
+from urllib.request import urlopen
+
+from packaging.version import InvalidVersion, Version
 
 ROOT = Path(__file__).parent.resolve()
 ENV_FILE = ROOT / ".env"
 ENV_EXAMPLE = ROOT / ".env.example"
-VENV_DIR = ROOT / ".venv"
 MIGRATIONS_DIR = ROOT / "app" / "db" / "migrations"
+LOCK_FILE = ROOT / "uv.lock"
+VENV_DIR = ROOT / ".venv"
+DEFAULT_PYTHON_VERSION = "3.12.12"
+MAX_SUPPORTED_PYTHON = Version("3.12.12")
+AUTO_CONFIRM = False
+LOG_PREFIX = "[launcher]"
 
 
 def prompt_yes_no(question: str, default: bool = True) -> bool:
     """Console prompt that returns a boolean while handling default answers."""
+    if AUTO_CONFIRM:
+        print(f"{question} [{'Y' if default else 'N'}] (auto-confirmed)")
+        return default
+
     default_text = "[Y/n]" if default else "[y/N]"
     while True:
         choice = input(f"{question} {default_text} ").strip().lower()
@@ -32,15 +47,70 @@ def prompt_yes_no(question: str, default: bool = True) -> bool:
         print("Please respond with 'y' or 'n'.")
 
 
-def run(cmd, check=True, capture_output=False, echo=True):
-    """Wrapper around subprocess.run; echo can be disabled for noisier commands."""
-    if echo:
-        print(f"> {' '.join(cmd)}")
-    return subprocess.run(cmd, check=check, capture_output=capture_output, text=True)
+def log_step(action: str, detail: str | None = None) -> None:
+    info = f"{LOG_PREFIX} {action}"
+    if detail:
+        info += f" — {detail}"
+    print(info)
+
+
+class StepTracker:
+    def __init__(self, steps: list[tuple[str, str]]):
+        self.steps = steps
+        self.index = 0
+        self.total = len(steps)
+
+    def next(self):
+        self.index += 1
+        name, reason = self.steps[self.index - 1]
+        print(f"{LOG_PREFIX} Step {self.index}/{self.total}: {name} — {reason}")
+
+
+def run(cmd, check=True, capture_output=False, echo=True, label: str | None = None, reason: str | None = None):
+    """Wrapper around subprocess.run with simple logging."""
+    label = label or "cmd"
+    cmd_text = " ".join(cmd)
+    detail = f" — {reason}" if reason else ""
+    print(f"{LOG_PREFIX} {label}: {cmd_text}{detail}")
+    result = subprocess.run(cmd, check=check, capture_output=capture_output, text=True)
+    status = "OK" if result.returncode == 0 else f"FAIL ({result.returncode})"
+    print(f"{LOG_PREFIX} {label}: {status}{detail}")
+    if result.returncode != 0 and capture_output:
+        out = (result.stderr or result.stdout or "").strip()
+        if out:
+            print(f"{LOG_PREFIX} {label} output:\n{out}")
+    return result
+
+
+def parse_args() -> "argparse.Namespace":
+    parser = ArgumentParser(description="Launcher for the UserManagementWithEmailOtp stack.")
+    parser.add_argument(
+        "-a",
+        "--auto",
+        action="store_true",
+        help="Auto-confirm all installer prompts (fully automated mode).",
+    )
+    parser.add_argument(
+        "-p",
+        "--python",
+        dest="python_version",
+        help="Python version to target (default: latest stable discovered by uv).",
+    )
+    return parser.parse_args()
+
+
+def run_with_uv(uv_cmd: str, python_path: str, command: list[str], **kwargs):
+    """
+    Execute a command through `uv run --python <python_path>` so the uv-managed interpreter
+    is always the one running subprocess work.
+    """
+    cmd = [uv_cmd, "run", "--python", python_path, *command]
+    return run(cmd, **kwargs)
 
 
 def ensure_uv():
     """Ensure the `uv` tool is installed; optionally install it via pip."""
+    log_step("Ensuring uv tool is available")
     uv_cmd = shutil.which("uv")
     if uv_cmd:
         return uv_cmd
@@ -62,19 +132,123 @@ def try_capture(cmd):
         return None
 
 
-def find_python_path(version: str = "3.12", uv_cmd: str | None = None) -> str | None:
+def _short_python_version(version: str) -> str:
+    """Normalize target version to a major.minor string usable by python/py commands."""
+    try:
+        parsed = Version(version)
+        return f"{parsed.major}.{parsed.minor}"
+    except InvalidVersion:
+        parts = version.split(".")
+        if len(parts) >= 2:
+            return ".".join(parts[:2])
+        return version
+
+
+def _normalize_os(name: str) -> str:
+    name = name.lower()
+    return "macos" if name == "darwin" else name
+
+
+def _normalize_arch(name: str) -> str:
+    mapping = {
+        "amd64": "x86_64",
+        "x86_64": "x86_64",
+        "arm64": "aarch64",
+        "aarch64": "aarch64",
+    }
+    return mapping.get(name.lower(), name.lower())
+
+
+def _is_prerelease(version: str | None) -> bool:
+    try:
+        return Version(version or "").is_prerelease
+    except InvalidVersion:
+        return False
+
+
+def _version_obj(version: str | None) -> Version:
+    try:
+        return Version(version or "0")
+    except InvalidVersion:
+        cleaned = "".join(ch for ch in (version or "") if ch.isdigit() or ch == ".")
+        try:
+            return Version(cleaned or "0")
+        except InvalidVersion:
+            return Version("0")
+
+
+def get_latest_python_version(uv_cmd: str) -> str:
+    """Query uv for the newest stable CPython download available for this platform."""
+
+    desired_os = _normalize_os(platform.system())
+    desired_arch = _normalize_arch(platform.machine())
+
+    try:
+        result = run(
+            [uv_cmd, "python", "list", "--output-format", "json"],
+            capture_output=True,
+            echo=False,
+        )
+        if result.returncode != 0 or not result.stdout:
+            return DEFAULT_PYTHON_VERSION
+        entries = json.loads(result.stdout)
+    except Exception:
+        return DEFAULT_PYTHON_VERSION
+
+    def matches(entry: dict[str, Any]) -> bool:
+        if entry.get("implementation") != "cpython":
+            return False
+        if entry.get("variant") != "default":
+            return False
+        os_name = entry.get("os", "").lower()
+        arch = entry.get("arch", "").lower()
+        if desired_os and os_name and os_name != desired_os:
+            return False
+        if desired_arch and arch and arch != desired_arch:
+            return False
+        return True
+
+    candidates = [entry for entry in entries if matches(entry)]
+    if not candidates:
+        candidates = [entry for entry in entries if entry.get("implementation") == "cpython"]
+    if not candidates:
+        return DEFAULT_PYTHON_VERSION
+
+    stable = [entry for entry in candidates if not _is_prerelease(entry.get("version"))]
+    effective = stable or candidates
+    filtered = [entry for entry in effective if _version_obj(entry.get("version")) <= MAX_SUPPORTED_PYTHON]
+    if filtered:
+        selection = filtered
+    else:
+        log_step("Selecting compatible Python", f"falling back to {DEFAULT_PYTHON_VERSION} (capping unsupported newer versions)")
+        return DEFAULT_PYTHON_VERSION
+    best = max(selection, key=lambda entry: _version_obj(entry.get("version")))
+    version = best.get("version")
+    if selection is not effective:
+        log_step("Selecting compatible Python", f"capped at Python <= {MAX_SUPPORTED_PYTHON}")
+    return version or DEFAULT_PYTHON_VERSION
+
+
+def find_python_path(version: str = DEFAULT_PYTHON_VERSION, uv_cmd: str | None = None) -> str | None:
     """Find a Python interpreter matching the requested version.
 
     The search order tries the Windows py launcher, direct pythonX.Y calls, uv
     managed interpreters, and common install locations on different platforms.
     """
     # Try Windows py launcher
-    result = try_capture(["py", f"-{version}", "-c", "import sys; print(sys.executable)"])
+    short_version = _short_python_version(version)
+    if short_version:
+        result = try_capture(["py", f"-{short_version}", "-c", "import sys; print(sys.executable)"])
+    else:
+        result = None
     if result and result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
 
     # Try direct python command
-    result = try_capture([f"python{version}", "-c", "import sys; print(sys.executable)"])
+    if short_version:
+        result = try_capture([f"python{short_version}", "-c", "import sys; print(sys.executable)"])
+    else:
+        result = None
     if result and result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
 
@@ -86,22 +260,27 @@ def find_python_path(version: str = "3.12", uv_cmd: str | None = None) -> str | 
             if path:
                 return path
 
-        result = try_capture([uv_cmd, "python", "list", "--format", "json"])
+        result = try_capture([uv_cmd, "python", "list", "--output-format", "json"])
         if result and result.returncode == 0 and result.stdout:
             try:
                 py_list = json.loads(result.stdout)
                 # py_list is an array of dicts; pick latest matching major.minor
-                matching = [
-                    p for p in py_list if str(p.get("version", "")).startswith(version)
-                ]
+                matching = [p for p in py_list if p.get("version") == version]
                 # fall back to any that has major.minor
                 if not matching:
-                    matching = [
-                        p for p in py_list if version in str(p.get("version", ""))
-                    ]
+                    if short_version:
+                        matching = [
+                            p
+                            for p in py_list
+                            if str(p.get("version", "")).startswith(short_version)
+                        ]
+                    else:
+                        matching = [
+                            p for p in py_list if version in str(p.get("version", ""))
+                        ]
                 if matching:
                     # choose first entry's executable
-                    exe = matching[0].get("executable")
+                    exe = matching[0].get("executable") or matching[0].get("path")
                     if exe:
                         return exe
             except Exception:
@@ -120,26 +299,66 @@ def find_python_path(version: str = "3.12", uv_cmd: str | None = None) -> str | 
     return None
 
 
-def ensure_python(version: str, uv_cmd: str) -> str:
-    """Return an interpreter path, installing with uv if not present."""
-    path = find_python_path(version, uv_cmd)
+def ensure_python(uv_cmd: str, version: str | None = None) -> str:
+    """Return an interpreter path, installing via uv if it is missing."""
+    target_version = version or get_latest_python_version(uv_cmd)
+    log_step("Selecting Python interpreter", f"targeting {target_version}")
+    path = find_python_path(target_version, uv_cmd)
     if path:
-        print(f"Using Python {version} at: {path}")
+        print(f"Using Python {target_version} at: {path}")
         return path
-    print(f"Python {version} not found. Installing via uv ...")
-    run([uv_cmd, "python", "install", version])
-    path = find_python_path(version, uv_cmd)
+
+    print(f"Python {target_version} not found.")
+    if not prompt_yes_no(f"Install Python {target_version} via uv?", default=True):
+        print(f"Please install Python manually (e.g., `uv python install {target_version}`) and rerun the launcher.")
+        sys.exit(1)
+
+    print(f"Installing Python {target_version} via uv ...")
+    run([uv_cmd, "python", "install", target_version])
+    path = find_python_path(target_version, uv_cmd)
     if not path:
         raise RuntimeError(
-            f"Failed to install Python {version}. If uv installed it, ensure its install dir is on PATH "
+            f"Failed to install Python {target_version}. If uv installed it, ensure its install dir is on PATH "
             f"or rerun launcher. Check ~/.local/python or %LOCALAPPDATA%/uv/python."
         )
-    print(f"Installed Python {version} at: {path}")
+    print(f"Installed Python {target_version} at: {path}")
     return path
+
+
+def venv_python() -> Path:
+    """Path to the virtual environment's Python executable."""
+    if os.name == "nt":
+        return VENV_DIR / "Scripts" / "python.exe"
+    return VENV_DIR / "bin" / "python"
+
+
+def ensure_venv(uv_cmd: str, base_python: str) -> str:
+    """Create (or recreate) the project .venv using the uv-managed interpreter."""
+    def _needs_recreate() -> bool:
+        if not VENV_DIR.exists():
+            return True
+        python_path = venv_python()
+        if not python_path.exists():
+            return True
+        result = try_capture([str(python_path), "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"] )
+        if not result or result.returncode != 0:
+            return True
+        actual = result.stdout.strip()
+        target = run([base_python, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"] , capture_output=True, echo=False)
+        target_version = target.stdout.strip() if target and target.returncode == 0 else ""
+        return actual != target_version
+
+    if _needs_recreate():
+        if VENV_DIR.exists():
+            shutil.rmtree(VENV_DIR)
+        log_step("Creating project .venv", f"using {base_python}")
+        run([uv_cmd, "venv", "--python", base_python])
+    return str(venv_python())
 
 
 def ensure_env_file():
     """Create a .env from .env.example if missing so the app can start."""
+    log_step("Checking .env file", "copies .env.example when missing")
     if ENV_FILE.exists():
         return
     if ENV_EXAMPLE.exists() and prompt_yes_no("No .env found. Copy from .env.example?", default=True):
@@ -198,6 +417,8 @@ def parse_redis_settings(env):
     return {"port": port}
 
 
+
+
 def port_available(port: int) -> bool:
     """Check whether a TCP port can be bound (used before starting containers)."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -252,43 +473,25 @@ def update_env_database_port(env: dict, new_port: int):
     env["DATABASE_URL"] = new_url
 
 
-def ensure_venv(uv_cmd):
-    """Return True if the virtual environment already exists."""
-    return VENV_DIR.exists()
-
-
-def create_venv(uv_cmd: str, python_path: str):
-    """Create a new virtual environment with uv."""
-    run([uv_cmd, "venv", "--python", python_path])
-
-
-def venv_python() -> Path:
-    """Return the path to the venv's python executable on this OS."""
-    if os.name == "nt":
-        return VENV_DIR / "Scripts" / "python.exe"
-    return VENV_DIR / "bin" / "python"
-
-
-def venv_python_matches(version: str) -> bool:
-    """Verify the venv python version matches the target major.minor."""
-    py = venv_python()
-    if not py.exists():
-        return False
-    result = try_capture([str(py), "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"])
-    return bool(result and result.returncode == 0 and result.stdout.strip().startswith(version))
-
-
-def recreate_venv(uv_cmd: str, python_path: str):
-    """Delete and recreate the venv (used when the version is mismatched)."""
-    if VENV_DIR.exists():
-        shutil.rmtree(VENV_DIR)
-    create_venv(uv_cmd, python_path)
-
-
 def install_dependencies(uv_cmd, python_path: str):
-    """Install requirements into the venv using uv pip after user confirmation."""
-    if prompt_yes_no("Install project dependencies with uv pip?", default=True):
-        run([uv_cmd, "pip", "install", "--python", python_path, "-r", "requirements.txt"])
+    """Let `uv sync` provision dependencies without requiring a dedicated `.venv` directory."""
+    if not prompt_yes_no("Install project dependencies with uv sync?", default=True):
+        return
+
+    log_step("Refreshing lockfile", "aligning uv.lock with pyproject")
+    run([uv_cmd, "lock"], check=True, capture_output=True, label="lock", reason="update uv.lock")
+
+    log_step("Installing dependencies", "running `uv sync` inside .venv")
+    cmd = [
+        uv_cmd,
+        "sync",
+        "--python",
+        python_path,
+        "--no-install-project",
+        "--managed-python",
+        "--locked",
+    ]
+    run(cmd, check=True, capture_output=False, label="deps", reason="uv sync")
 
 
 def docker_available():
@@ -562,14 +765,14 @@ def test_smtp(env: dict):
         print(f"SMTP test failed: {exc}")
 
 
-def start_api(python_path: str):
-    """Prompt to start uvicorn with reload using the selected interpreter."""
+def start_api(uv_cmd: str, python_path: str):
+    """Prompt to start the FastAPI server through uv so the launcher stays in control."""
     if prompt_yes_no("Start FastAPI server now?", default=True):
         print("Starting API server (Ctrl+C to stop)...")
-        run(
+        run_with_uv(
+            uv_cmd,
+            python_path,
             [
-                python_path,
-                "-m",
                 "uvicorn",
                 "app.main:app",
                 "--reload",
@@ -582,7 +785,7 @@ def start_api(python_path: str):
         )
 
 
-def run_migrations(python_path: str, db_url: str | None):
+def run_migrations(uv_cmd: str, python_path: str, db_url: str | None):
     """Apply SQL migrations stored under app/db/migrations if any are pending."""
 
     if not db_url:
@@ -653,7 +856,7 @@ async def main():
 asyncio.run(main())
 """
     try:
-        run([python_path, "-c", migration_script], echo=False)
+        run_with_uv(uv_cmd, python_path, ["python", "-c", migration_script], echo=False)
     except FileNotFoundError:
         print("Migration step skipped: asyncpg not available. Install dependencies first.")
     except Exception as exc:
@@ -662,22 +865,39 @@ asyncio.run(main())
 
 def main():
     """Primary orchestrator for the launcher workflow."""
+    args = parse_args()
+    global AUTO_CONFIRM
+    AUTO_CONFIRM = args.auto
+
+    steps = [
+        ("Ensure uv", "manage Python, virtualenv, and deps"),
+        ("Select Python", "pick latest compatible interpreter (wheels available)"),
+        ("Create .venv", "ensure project env uses selected interpreter"),
+        (".env check", "copy from .env.example if missing"),
+        ("Sync deps", "install locked dependencies via uv into .venv"),
+        ("Docker services", "start Postgres/Redis if available"),
+        ("Migrations", "apply SQL migrations to database"),
+        ("SMTP test", "optionally verify email credentials"),
+        ("Start API", "launch uvicorn for development"),
+    ]
+    tracker = StepTracker(steps)
+
+    tracker.next()
     uv_cmd = ensure_uv()
-    target_python = ensure_python("3.12", uv_cmd)
+    tracker.next()
+    target_python = ensure_python(uv_cmd, args.python_version)
+    tracker.next()
+    venv_python_path = ensure_venv(uv_cmd, target_python)
+    tracker.next()
     ensure_env_file()
     env = parse_env()
     report_env_gaps(env)
 
-    venv_exists = ensure_venv(uv_cmd)
-    if not venv_exists:
-        if prompt_yes_no(f"Create .venv with Python at {target_python}?", default=True):
-            create_venv(uv_cmd, target_python)
-    elif not venv_python_matches("3.12"):
-        if prompt_yes_no(".venv exists but is not Python 3.12. Recreate it?", default=True):
-            recreate_venv(uv_cmd, target_python)
-    install_dependencies(uv_cmd, str(venv_python()))
+    tracker.next()
+    install_dependencies(uv_cmd, venv_python_path)
 
     docker_ready = False
+    tracker.next()
     if docker_available():
         docker_ready = ensure_docker_running()
     else:
@@ -693,10 +913,14 @@ def main():
         ensure_redis_container(redis_cfg, env)
     else:
         print("Docker is unavailable or not running; skipping PostgreSQL/Redis containers.")
-    run_migrations(str(venv_python()), env.get("DATABASE_URL"))
+    log_step("Applying migrations", "ensuring schema is up to date")
+    run_migrations(uv_cmd, venv_python_path, env.get("DATABASE_URL"))
+    tracker.next()
     test_smtp(env)
 
-    start_api(str(venv_python()))
+    log_step("Starting API server", "launching uvicorn via uv run")
+    tracker.next()
+    start_api(uv_cmd, venv_python_path)
 
 
 if __name__ == "__main__":

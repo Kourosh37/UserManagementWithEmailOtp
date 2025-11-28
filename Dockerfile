@@ -21,8 +21,8 @@ RUN apt-get update \
     && pip install --upgrade pip \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+COPY pyproject.toml uv.lock ./
+RUN pip install .
 
 # Runtime image (no build toolchain)
 FROM python:3.12-slim AS runtime
